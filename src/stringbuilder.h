@@ -911,7 +911,7 @@ ptrdiff_t string_get_file_length(FILE* file) {
     fseek(file, 0, SEEK_END);
     ptrdiff_t n = ftell(file);
     fseek(file, curr, SEEK_SET);
-    return n;
+    return n - curr;
 }
 
 // ASCII FUNCTIONS

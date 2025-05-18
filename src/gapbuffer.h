@@ -121,7 +121,6 @@ GapBufSlice gapbuf_slice(GapBuffer* gapbuf, isize start, isize end) {
 }
 
 void gapbuf_expand(GapBuffer* gapbuf, isize n) {
-    printf("%lld\n", gapbuf->capacity);
     isize new_capacity = gapbuf->capacity * 2;
     if (n > new_capacity) new_capacity = n;
 
@@ -129,7 +128,6 @@ void gapbuf_expand(GapBuffer* gapbuf, isize n) {
     assert(new_buffer && "malloc failed");
 
     GapBufSlice strings = gapbuf_getstrings(gapbuf);
-    printf("%lld, %lld\n", strings.l.count, strings.r.count);
     isize begin = strings.l.count;
     isize end   = new_capacity - strings.r.count;
     // copies left to the beggining of the buffer and then creates a gap after the end of left and puts right at the end
@@ -213,16 +211,36 @@ void gapbuf_print(GapBuffer* gapbuf) {
 }
 
 void gapbuf_debug(GapBuffer* gapbuf) {
-    GapBufSlice strings = gapbuf_getstrings(gapbuf);
-    string_print(strings.l);
-    putc('[', stdout);
-    putc(']', stdout);
-    string_print(strings.r);
+    for (isize i = 0; i < gapbuf->capacity; i++) {
+        if (i < gapbuf->gap_begin || i >= gapbuf->gap_end) {
+            if (gapbuf->data[i] == '\n' || gapbuf->data[i] == '\r') {
+                putc('/', stdout);
+            } else {
+                putc(gapbuf->data[i], stdout);
+            }
+        } else {
+            putc('-', stdout);
+        }
+    }
+    putc('-', stdout);
+    putc('\n', stdout);
+    for (isize i = 0; i <= gapbuf->capacity; i++) {
+        if (i == gapbuf->gap_begin && i == gapbuf->gap_end) {
+            putc('^', stdout);
+        } else if (i == gapbuf->gap_begin) {
+            putc('<', stdout);
+        } else if (i == gapbuf->gap_end) {
+            putc('>', stdout);
+        } else {
+            putc(' ', stdout);
+        }
+    }
+    putc('\n', stdout);
 }
 
 void gapbuf_read_entire_file(GapBuffer* gapbuf, const char* filename) {
     gapbuf_clear(gapbuf);
-    FILE* f = fopen(filename, "r");
+    FILE* f = fopen(filename, "rb");
     if (!f) {
         perror("Couldn't Open File: ");
         return;
@@ -234,7 +252,7 @@ void gapbuf_read_entire_file(GapBuffer* gapbuf, const char* filename) {
     gapbuf->gap_end = gapbuf->capacity;
 }
 void gapbuf_write_entire_file(GapBuffer* gapbuf, const char* filename) {
-    FILE* f = fopen(filename, "w");
+    FILE* f = fopen(filename, "wb");
     if (!f) {
         perror("Couldn't Open File: ");
         return;

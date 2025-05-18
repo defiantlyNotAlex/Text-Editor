@@ -128,7 +128,7 @@ void text_draw(TextCamera* camera, Text* txt, Font font) {
             curr_pos.x = padding;
             curr_pos.y += font.baseSize * camera->scale;
         }
-        
+        if (c == U'\r') continue;
         if (c == U'\n') {
             row++;
             col = 0;
