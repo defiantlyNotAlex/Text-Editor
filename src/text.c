@@ -123,11 +123,13 @@ isize text_cursor_idx(Text* txt) {
 void text_cursor_insert(Text* txt, const char* buf, isize n) {
     gapbuf_insertn(&txt->gapbuf, buf, n);
 }
-void text_cursor_remove_before(Text* txt, isize n) {
+String text_cursor_remove_before(Text* txt, isize n) {
     gapbuf_removen(&txt->gapbuf, n);
+    return (String) {.data = txt->gapbuf.data + txt->gapbuf.gap_begin, .count = n};
 }
-void text_cursor_remove_after(Text* txt, isize n) {
+String text_cursor_remove_after(Text* txt, isize n) {
     gapbuf_removen_after(&txt->gapbuf, n);
+    return (String) {.data = txt->gapbuf.data + txt->gapbuf.gap_end - n, .count = n};
 }
 void text_update_line_offsets(Text* txt) {
     arrlist_setcount(txt->line_offsets, 0);
@@ -149,7 +151,7 @@ void text_cursor_update_position(Text* txt) {
     txt->cursor_row = pos.row;
 }
 
-void text_delete_selection(Text* txt) {
+String text_delete_selection(Text* txt) {
     txt->selected = false;
     isize l, r;
     if (txt->selection_begin < txt->selection_end) {
@@ -162,6 +164,8 @@ void text_delete_selection(Text* txt) {
     text_cursor_move(txt, l - text_cursor_idx(txt));
     text_cursor_remove_after(txt, r - l);
     txt->selection_begin = l;
+
+    return (String){.data = txt->gapbuf.data + txt->gapbuf.gap_begin, r - l};
 }
 void text_copy_selection_to_clipboard(Text* txt) {
     isize l, r;
@@ -189,4 +193,35 @@ void text_select_begin(Text* txt) {
 }
 void text_select_end(Text* txt) {
     txt->selection_end = text_index(txt, txt->cursor_col, txt->cursor_row);
+}
+
+GapBufSlice text_selected_string(Text* txt) {
+    isize l, r;
+    if (txt->selection_begin < txt->selection_end) {
+        l = txt->selection_begin;
+        r = txt->selection_end;
+    } else {
+        l = txt->selection_end;
+        r = txt->selection_begin;
+    }
+    return gapbuf_slice(&txt->gapbuf, l, r);
+}
+
+void text_save_file(Text* txt) {
+    if (txt->filename.count == 0) {
+        text_prompt_filename(&txt->filename);
+    }
+    gapbuf_write_entire_file(&txt->gapbuf, txt->filename.data);
+    text_update_line_offsets(txt);
+    text_cursor_update_position(txt);
+}
+void text_load_file(Text* txt, const char* filename) {
+    gapbuf_read_entire_file(&txt->gapbuf, filename);
+    string_clear(&txt->filename);
+    string_append_string(&txt->filename, string_from_cstring(filename));
+}
+void text_prompt_filename(StringBuilder* sb) {
+    string_clear(sb);
+    printf("filename: ");
+    string_scanln(sb);
 }

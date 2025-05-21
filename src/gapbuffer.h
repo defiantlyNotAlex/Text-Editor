@@ -37,10 +37,10 @@ void gapbuf_insert(GapBuffer* gapbuf, char c);
 void gapbuf_insertn(GapBuffer* gapbuf, const char* buf, isize n);
 
 void gapbuf_remove(GapBuffer* gapbuf);
-void gapbuf_removen(GapBuffer* gapbuf, isize n);
+isize gapbuf_removen(GapBuffer* gapbuf, isize n);
 
 void gapbuf_remove_after(GapBuffer* gapbuf);
-void gapbuf_removen_after(GapBuffer* gapbuf, isize n);
+isize gapbuf_removen_after(GapBuffer* gapbuf, isize n);
 
 void gapbuf_print(GapBuffer* gapbuf);
 
@@ -189,9 +189,15 @@ void gapbuf_remove(GapBuffer* gapbuf) {
     if (gapbuf->gap_begin == 0) return;
     gapbuf->gap_begin--;
 }
-void gapbuf_removen(GapBuffer* gapbuf, isize n) {
-    if (gapbuf->gap_begin <= n) gapbuf->gap_begin = 0;
-    else gapbuf->gap_begin -= n;
+isize gapbuf_removen(GapBuffer* gapbuf, isize n) {
+    if (gapbuf->gap_begin <= n) {
+        gapbuf->gap_begin = 0;
+        return gapbuf->gap_begin;
+    }
+    else {
+        gapbuf->gap_begin -= n;
+        return n;
+    }
 }
 
 void gapbuf_remove_after(GapBuffer* gapbuf) {
@@ -199,9 +205,15 @@ void gapbuf_remove_after(GapBuffer* gapbuf) {
     gapbuf->gap_end++;
 }
 
-void gapbuf_removen_after(GapBuffer* gapbuf, isize n) {
-    if (gapbuf->gap_end + n > gapbuf->capacity) gapbuf->gap_end = gapbuf->capacity;
-    else gapbuf->gap_end += n;
+isize gapbuf_removen_after(GapBuffer* gapbuf, isize n) {
+    if (gapbuf->gap_end + n > gapbuf->capacity) {
+        gapbuf->gap_end = gapbuf->capacity;
+        return gapbuf->capacity - gapbuf->gap_end;
+    }
+    else {
+        gapbuf->gap_end += n;
+        return n;
+    }
 }
 
 void gapbuf_print(GapBuffer* gapbuf) {
@@ -260,6 +272,7 @@ void gapbuf_write_entire_file(GapBuffer* gapbuf, const char* filename) {
     GapBufSlice strings = gapbuf_getstrings(gapbuf);
     string_write_file(f, strings.l);
     string_write_file(f, strings.r);
+    fclose(f);
 }
 
 #endif

@@ -1,37 +1,23 @@
-#include "short_types.h"
-#include "arena.h"
-#include "stringbuilder.h"
-#include "text.h"
-#include "arraylist.h"
+#include "undo.h"
 
-typedef struct Command {
-    isize line;
-    isize col;
-
-    isize len;
-    String data;
-    bool insert;
-} Command;
-
-typedef struct CommandList {
-    isize curr;
-    Command* commands;
-    
-    Arena string_stack;
-} CommandList;
-
+String string_arena_dup(Arena* arena, String string) {
+    String result = {.data = arena_memdup(arena, string.data, string.count, 1), .count = string.count};
+    return result;
+}
+void reset_command(CommandList* commands) {
+    arrlist_setcount(commands->commands, 0);
+    commands->curr = 0;
+    arena_clear(&commands->string_stack);
+}
 void undo_command(Text* txt, CommandList* commands) {
-    if (commands->curr < 0) {
+    if (commands->curr <= 0) {
         return;
     }
     commands->curr--;
     Command command = commands->commands[commands->curr];
     text_cursor_moveto(txt, command.col, command.line);
-    if (command.insert) {
-        text_cursor_remove_after(txt, command.len);
-    } else {
-        text_cursor_insert(txt, command.data.data, command.data.count);
-    }
+    text_cursor_remove_after(txt, command.inserted.count);
+    text_cursor_insert(txt, command.removed.data, command.removed.count);
 }
 void redo_command(Text* txt, CommandList* commands) {
     if (commands->curr >= arrlist_count(commands->commands)) {
@@ -39,10 +25,24 @@ void redo_command(Text* txt, CommandList* commands) {
     }
     Command command = commands->commands[commands->curr];
     text_cursor_moveto(txt, command.col, command.line);
-    if (command.insert) {
-        text_cursor_insert(txt, command.data.data, command.data.count);
-    } else {
-        text_cursor_remove_after(txt, command.len);
-    }
+    text_cursor_remove_after(txt, command.removed.count);
+    text_cursor_insert(txt, command.inserted.data, command.inserted.count);
     commands->curr++;
 }
+
+void insert_command(Text* txt, CommandList* commands, String inserted, String removed, isize col, isize row) {
+    Command command = {
+        .line = row,
+        .col = col,
+
+        .inserted = string_arena_dup(&commands->string_stack, inserted),
+        .removed = string_arena_dup(&commands->string_stack, removed),
+    };
+    if (arrlist_count(commands->commands) <= commands->curr) {
+        arrlist_expand(commands->commands, 1);
+    }
+    commands->commands[commands->curr++] = command;     
+    arrlist_setcount(commands->commands, commands->curr);
+}
+// add character
+// remove charachter

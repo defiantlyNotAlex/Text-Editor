@@ -13,6 +13,7 @@
 #include "gapbuffer.h"
 
 #include "text.h"
+#include "undo.h"
 
 
 char* keycode_to_char(KeyboardKey key, bool upper) {
@@ -119,6 +120,7 @@ void text_draw(TextCamera* camera, Text* txt, Font font) {
             i = j + strings.l.count;
         }
 
+
         
         if (row == txt->cursor_row && col == txt->cursor_col) {
             DrawRectangle(curr_pos.x, curr_pos.y, ceilf(camera->scale * 0.5) + 1, font.baseSize * camera->scale, BLUE);
@@ -140,14 +142,18 @@ void text_draw(TextCamera* camera, Text* txt, Font font) {
             real_col++;
             isize index = GetGlyphIndex(font, c);
             float width = 0;
-            if (font.glyphs[index].advanceX == 0) width = ((float)font.recs[index].width*camera->scale);
-            else width  = ((float)font.glyphs[index].advanceX*camera->scale);
+            if (font.glyphs[index].advanceX == 0) width = font.recs[index].width * camera->scale;
+            else width = font.glyphs[index].advanceX * camera->scale;
             width += spacing;
             if (i > l && i <= r && txt->selected) {
                 DrawRectangle(curr_pos.x, curr_pos.y, width, font.baseSize * camera->scale, GetColor(0x0000ffff));
-                DrawTextCodepoint(font, c, curr_pos, 10 * camera->scale, WHITE);
+                DrawTextCodepoint(font, c, curr_pos, font.baseSize * camera->scale, WHITE);
             } else {
-                DrawTextCodepoint(font, c, curr_pos, 10 * camera->scale, BLACK);
+                DrawTextCodepoint(font, c, curr_pos, font.baseSize * camera->scale, BLACK);
+            }
+            Vector2 mpos = GetMousePosition();
+            if (CheckCollisionPointRec(mpos, (Rectangle){curr_pos.x, curr_pos.y, width, font.baseSize * camera->scale})) {
+                printf("%lld, %lld\n", row, col - 1);
             }
             curr_pos.x += width;
         }
@@ -176,49 +182,63 @@ bool still_word(Codepoint c) {
 
 
 int main(i32 argc, char** argv) {
-
-    
     SetTraceLogLevel(LOG_ERROR);
     InitWindow(1280, 720, "Text-Editor");
     SetTargetFPS(60);
     
-    TextCamera camera = {.scale = 2.0};
+    TextCamera camera = {.scale = 0.5};
     Text txt = {0};
-    Font font = GetFontDefault();
+    CommandList command_list = {0};
+    Font font = LoadFont("fonts/ComicMono.ttf");
     
     if (argc > 1) {
-        load_file(&txt, argv[1]);
+        text_load_file(&txt, argv[1]);
     }
 
     while(!WindowShouldClose()) {
 
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_S)) {
-            StringBuilder sb = {0};
-            printf("filename: ");
-            string_scanln(&sb);
-            save_file(&txt, sb.data);
-            string_free(&sb);
+            text_save_file(&txt);
         } else if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_L)) {
             StringBuilder sb = {0};
-            printf("filename: ");
-            string_scanln(&sb);
-            load_file(&txt, sb.data);
+            text_prompt_filename(&sb);
+            text_load_file(&txt, sb.data);
+            reset_command(&command_list);
             string_free(&sb);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_V)) {
-            if (txt.selected)
-                text_delete_selection(&txt);
+            // ctrl v
+            isize col = txt.cursor_col;
+            isize row = txt.cursor_row;
+            String deleted = {0};
+            if (txt.selected) {
+                deleted = text_delete_selection(&txt);
+            }
             const char* str = GetClipboardText();
+            insert_command(&txt, &command_list, string_from_cstring(str), deleted, col, row);
             text_cursor_insert(&txt, str, strlen(str));
+
             text_update_line_offsets(&txt);
             text_cursor_update_position(&txt);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_X)) {
+            // ctrl x
+            isize col = txt.cursor_col;
+            isize row = txt.cursor_row;
+
             text_copy_selection_to_clipboard(&txt);
-            text_delete_selection(&txt);
+            String deleted = text_delete_selection(&txt);
+            insert_command(&txt, &command_list, (String){0}, deleted, col, row);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_C)) {
+            // ctrl c
             text_copy_selection_to_clipboard(&txt);
+        }
+        if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Z)) {
+            undo_command(&txt, &command_list);
+        }
+        if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Y)) {
+            redo_command(&txt, &command_list);
         }
 
         KeyboardKey key = 0;
@@ -243,42 +263,58 @@ int main(i32 argc, char** argv) {
                 break;
                 default: break;
             }
+
+            float mousewheel_movement = GetMouseWheelMove();
+
+            if (mousewheel_movement != 0) {
+                camera.row -= mousewheel_movement;
+            }
+
+            bool cursor_moved = false;
             switch (key) {
                 case KEY_LEFT: if (IsKeyDown(KEY_LEFT_CONTROL)) {
                     text_cursor_move_until(&txt, false, still_word);
+                    cursor_moved = true;
                 } else {
                     text_cursor_move_codepoints(&txt, -1);
+                    cursor_moved = true;
                 } break;
                     
                 case KEY_RIGHT: if (IsKeyDown(KEY_LEFT_CONTROL)) {
                     text_cursor_move_until(&txt, true, still_word);
+                    cursor_moved = true;
                 } else {
                     text_cursor_move_codepoints(&txt, 1);
+                    cursor_moved = true;
                 } break;
 
                 case KEY_UP: if (IsKeyDown(KEY_LEFT_CONTROL)) {
                     camera.row--;
                 } else {
                     text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row - 1);
+                    cursor_moved = true;
                 } break;
                 case KEY_DOWN: if (IsKeyDown(KEY_LEFT_CONTROL)) {
                     camera.row++;
                 } else {
                     text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row + 1);
+                    cursor_moved = true;
                 } break;
 
-                case KEY_HOME: text_cursor_moveto(&txt, 0, txt.cursor_row); break;
-                case KEY_END: text_cursor_moveto(&txt, ISIZE_MAX, txt.cursor_row); break;
+                case KEY_HOME: text_cursor_moveto(&txt, 0, txt.cursor_row); cursor_moved = true; break;
+                case KEY_END: text_cursor_moveto(&txt, ISIZE_MAX, txt.cursor_row); cursor_moved = true; break;
 
                 case KEY_PAGE_UP: if (IsKeyDown(KEY_LEFT_CONTROL)) {
                     camera.row -= 20;
                 } else {
-                    text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row - 20); break;
+                    text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row - 20);
+                    cursor_moved = true;
                 } break;
                 case KEY_PAGE_DOWN: if (IsKeyDown(KEY_LEFT_CONTROL)) {
                     camera.row += 20;
                 } else {
-                    text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row + 20); break;
+                    text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row + 20);
+                    cursor_moved = true;
                 } break;
             
                 default: break;
@@ -286,21 +322,34 @@ int main(i32 argc, char** argv) {
             if (IsKeyDown(KEY_LEFT_SHIFT)) {
                 text_select_end(&txt);
             }
-            
             text_cursor_update_position(&txt);
-            
-            if (txt.selected && (key == KEY_BACKSPACE || key == KEY_DELETE)) {
-                text_delete_selection(&txt);
-            } else if (key == KEY_BACKSPACE) {
-                text_cursor_remove_before(&txt, 1);
-            } else if (key == KEY_DELETE) {
-                text_cursor_remove_after(&txt, 1);
+            if (cursor_moved) {
+                if (txt.cursor_row < camera.row) {
+                    camera.row = txt.cursor_row;
+                } else if (txt.cursor_row > camera.row + 30) {
+                    camera.row = txt.cursor_row - 30;
+                }
             }
-    
+            
+            isize col = txt.cursor_col;
+            isize row = txt.cursor_row;
+            if (txt.selected && (key == KEY_BACKSPACE || key == KEY_DELETE)) {
+                String deleted = text_delete_selection(&txt);
+                insert_command(&txt, &command_list, (String){0}, deleted, col, row);
+            } else if (key == KEY_BACKSPACE) {
+                String deleted = text_cursor_remove_before(&txt, 1);
+                insert_command(&txt, &command_list, (String){0}, deleted, col, row);
+            } else if (key == KEY_DELETE) {
+                String deleted = text_cursor_remove_after(&txt, 1);
+                insert_command(&txt, &command_list, (String){0}, deleted, col, row);
+            }
+            col = txt.cursor_col;
+            row = txt.cursor_row;
             if (s != NULL && !IsKeyDown(KEY_LEFT_CONTROL)) {
-                if (txt.selected) text_delete_selection(&txt);
+                String deleted = {0};
+                if (txt.selected) deleted = text_delete_selection(&txt);
+                insert_command(&txt, &command_list, string_from_cstring(s), deleted, col, row);
                 text_cursor_insert(&txt, s, strlen(s));
-                
             }
         } while(key != '\0');
         
