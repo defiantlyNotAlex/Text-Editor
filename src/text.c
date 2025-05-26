@@ -45,15 +45,34 @@ void text_cursor_move(Text* txt, isize n) {
 void text_cursor_move_codepoints(Text* txt, isize ncodepoints) {
     GapBufSlice strings = gapbuf_getstrings(&txt->gapbuf);
     isize index = text_cursor_idx(txt);
-    if (ncodepoints < 0) {
-        ncodepoints = -ncodepoints;
-        for (isize i = 0; i < ncodepoints && index > 0; i++) {
-            index = string_iterate_back(strings.l, index);
-        }
-        
-    } else {
-        for (isize i = 0; i < ncodepoints && index < strings.l.count + strings.r.count; i++) {
-            index = string_iterate(strings.r, index - strings.l.count) + strings.l.count;
+    bool forwards = ncodepoints > 0;
+
+    for (isize i = 0; i < labs(ncodepoints); i++) {
+        if (forwards) {
+            isize idx = index - strings.l.count;
+            String str = strings.r;
+            if (idx >= strings.r.count) {
+                idx = strings.r.count;
+                break;
+            }
+            if (str.data[idx] == '\r' && str.count > idx + 1 && str.data[idx + 1] == '\n') {
+                index += 2;
+            } else {
+                index = string_iterate(str, idx) + strings.l.count;
+            }
+        } else {
+            String str = strings.l;
+
+            if (index <= 0) {
+                index = 0;
+                break;
+            }
+            
+            if (str.data[index - 1] == '\n' && str.count > 2 && str.data[index - 2] == '\r') {
+                index -= 2;
+            } else {
+                index = string_iterate_back(str, index);
+            }
         }
     }
     text_cursor_move(txt, index - text_cursor_idx(txt));
@@ -80,7 +99,7 @@ isize text_index(Text* txt, isize col, isize row) {
     }
     return index;
 }
-void text_cursor_update_position(Text* txt);
+
 void text_cursor_moveto(Text* txt, isize col, isize row) {
     isize index = text_index(txt, col, row);
     text_cursor_move(txt, index - text_cursor_idx(txt));
@@ -132,6 +151,7 @@ String text_cursor_remove_after(Text* txt, isize n) {
     return (String) {.data = txt->gapbuf.data + txt->gapbuf.gap_end - n, .count = n};
 }
 void text_update_line_offsets(Text* txt) {
+    arrlist_print(txt->line_offsets, "%lld", ",");
     arrlist_setcount(txt->line_offsets, 0);
 
     GapBufSlice strings = gapbuf_getstrings(&txt->gapbuf);
@@ -165,6 +185,8 @@ String text_delete_selection(Text* txt) {
     text_cursor_remove_after(txt, r - l);
     txt->selection_begin = l;
 
+    text_update_line_offsets(txt);
+    text_cursor_update_position(txt);
     return (String){.data = txt->gapbuf.data + txt->gapbuf.gap_begin, r - l};
 }
 void text_copy_selection_to_clipboard(Text* txt) {
@@ -183,6 +205,8 @@ void text_copy_selection_to_clipboard(Text* txt) {
     memcpy(buffer, slice.l.data, slice.l.count);
     memcpy(buffer + slice.l.count, slice.r.data, slice.r.count);
     buffer[count] = '\0';
+    printf("%lld, \"%s\"", count, buffer);
+
     SetClipboardText(buffer);
     free(buffer);
 }

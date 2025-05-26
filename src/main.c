@@ -119,8 +119,6 @@ void text_draw(TextCamera* camera, Text* txt, Font font) {
             c = string_next_codepoint(strings.r, &j);
             i = j + strings.l.count;
         }
-
-
         
         if (row == txt->cursor_row && col == txt->cursor_col) {
             DrawRectangle(curr_pos.x, curr_pos.y, ceilf(camera->scale * 0.5) + 1, font.baseSize * camera->scale, BLUE);
@@ -130,7 +128,6 @@ void text_draw(TextCamera* camera, Text* txt, Font font) {
             curr_pos.x = padding;
             curr_pos.y += font.baseSize * camera->scale;
         }
-        if (c == U'\r') continue;
         if (c == U'\n') {
             row++;
             col = 0;
@@ -138,6 +135,7 @@ void text_draw(TextCamera* camera, Text* txt, Font font) {
             curr_pos.x = padding;
             curr_pos.y += font.baseSize * camera->scale;
         } else {
+            
             col++;
             real_col++;
             isize index = GetGlyphIndex(font, c);
@@ -145,15 +143,17 @@ void text_draw(TextCamera* camera, Text* txt, Font font) {
             if (font.glyphs[index].advanceX == 0) width = font.recs[index].width * camera->scale;
             else width = font.glyphs[index].advanceX * camera->scale;
             width += spacing;
+            Color colour = BLACK;
             if (i > l && i <= r && txt->selected) {
                 DrawRectangle(curr_pos.x, curr_pos.y, width, font.baseSize * camera->scale, GetColor(0x0000ffff));
-                DrawTextCodepoint(font, c, curr_pos, font.baseSize * camera->scale, WHITE);
-            } else {
-                DrawTextCodepoint(font, c, curr_pos, font.baseSize * camera->scale, BLACK);
+                colour = GRAY;
+            }
+            if (c != U'\r') {
+                DrawTextCodepoint(font, c, curr_pos, font.baseSize * camera->scale, colour);
             }
             Vector2 mpos = GetMousePosition();
             if (CheckCollisionPointRec(mpos, (Rectangle){curr_pos.x, curr_pos.y, width, font.baseSize * camera->scale})) {
-                printf("%lld, %lld\n", row, col - 1);
+                //printf("%lld, %lld\n", row, col - 1);
             }
             curr_pos.x += width;
         }
@@ -183,13 +183,16 @@ bool still_word(Codepoint c) {
 
 int main(i32 argc, char** argv) {
     SetTraceLogLevel(LOG_ERROR);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1280, 720, "Text-Editor");
     SetTargetFPS(60);
     
-    TextCamera camera = {.scale = 0.5};
+    TextCamera camera = {.scale = 1.0};
     Text txt = {0};
     CommandList command_list = {0};
-    Font font = LoadFont("fonts/ComicMono.ttf");
+    
+    Font font = LoadFontEx("fonts/ComicMono.ttf", 20, NULL, 0);
+    
     
     if (argc > 1) {
         text_load_file(&txt, argv[1]);
@@ -208,12 +211,12 @@ int main(i32 argc, char** argv) {
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_V)) {
             // ctrl v
-            isize col = txt.cursor_col;
-            isize row = txt.cursor_row;
             String deleted = {0};
             if (txt.selected) {
                 deleted = text_delete_selection(&txt);
             }
+            isize col = txt.cursor_col;
+            isize row = txt.cursor_row;
             const char* str = GetClipboardText();
             insert_command(&txt, &command_list, string_from_cstring(str), deleted, col, row);
             text_cursor_insert(&txt, str, strlen(str));
@@ -223,11 +226,11 @@ int main(i32 argc, char** argv) {
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_X)) {
             // ctrl x
-            isize col = txt.cursor_col;
-            isize row = txt.cursor_row;
-
+            
             text_copy_selection_to_clipboard(&txt);
             String deleted = text_delete_selection(&txt);
+            isize col = txt.cursor_col;
+            isize row = txt.cursor_row;
             insert_command(&txt, &command_list, (String){0}, deleted, col, row);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_C)) {
@@ -323,31 +326,36 @@ int main(i32 argc, char** argv) {
                 text_select_end(&txt);
             }
             text_cursor_update_position(&txt);
+            int lines_fit_on_screen = (GetScreenHeight() - 20) / (font.baseSize * camera.scale) - 2;
             if (cursor_moved) {
                 if (txt.cursor_row < camera.row) {
                     camera.row = txt.cursor_row;
-                } else if (txt.cursor_row > camera.row + 30) {
-                    camera.row = txt.cursor_row - 30;
+                } else if (txt.cursor_row > camera.row + lines_fit_on_screen) {
+                    camera.row = txt.cursor_row - lines_fit_on_screen;
                 }
             }
             
-            isize col = txt.cursor_col;
-            isize row = txt.cursor_row;
             if (txt.selected && (key == KEY_BACKSPACE || key == KEY_DELETE)) {
                 String deleted = text_delete_selection(&txt);
+                isize col = txt.cursor_col;
+                isize row = txt.cursor_row;
                 insert_command(&txt, &command_list, (String){0}, deleted, col, row);
             } else if (key == KEY_BACKSPACE) {
                 String deleted = text_cursor_remove_before(&txt, 1);
+                isize col = txt.cursor_col;
+                isize row = txt.cursor_row;
                 insert_command(&txt, &command_list, (String){0}, deleted, col, row);
             } else if (key == KEY_DELETE) {
                 String deleted = text_cursor_remove_after(&txt, 1);
+                isize col = txt.cursor_col;
+                isize row = txt.cursor_row;
                 insert_command(&txt, &command_list, (String){0}, deleted, col, row);
             }
-            col = txt.cursor_col;
-            row = txt.cursor_row;
             if (s != NULL && !IsKeyDown(KEY_LEFT_CONTROL)) {
                 String deleted = {0};
                 if (txt.selected) deleted = text_delete_selection(&txt);
+                isize col = txt.cursor_col;
+                isize row = txt.cursor_row;
                 insert_command(&txt, &command_list, string_from_cstring(s), deleted, col, row);
                 text_cursor_insert(&txt, s, strlen(s));
             }

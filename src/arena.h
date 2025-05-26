@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <stdarg.h>
 
-#define ARENA_REGION_SIZE 0x100000 // 1 MiB
+#define ARENA_REGION_SIZE 200 // 4 KiB //1 MiB
 typedef struct ArenaRegion ArenaRegion;
 
 // dynamically expanding arena implementation, zeroes memory by default
@@ -19,14 +19,14 @@ typedef struct ArenaRegion ArenaRegion;
 typedef struct Arena {
     ArenaRegion* begin;
     ArenaRegion* head;
-
-    ptrdiff_t used;
 } Arena;
 
 // doubly linked list of ArenaRegions which each have ARENA_REGION_SIZE bytes of memory
 struct ArenaRegion {
     size_t capacity;
+    size_t used;
     ArenaRegion* next; // next region (NULL if it is the end)
+    ArenaRegion* prev;
 
     uint8_t begin[];
 };
@@ -56,12 +56,25 @@ char* arena_sprintf(Arena* arena, const char* fmt, ...);
 #include <assert.h>
 #include <stdio.h>
 
+void arena_debug(Arena* arena) {
+    ArenaRegion* curr = arena->begin;
+    while (curr != NULL) {
+        if (curr == arena->head) printf("[HEAD]");
+        else printf("      ");
+        printf("[%p], next: %p, prev: %p, (%llu / %llu)\n", curr, curr->next, curr->prev, curr->used, curr->capacity);
+        curr = curr->next;
+    }
+}
+
 // creates a region of memory for the arena
 ArenaRegion* arena_create_region(size_t capacity) {
     ArenaRegion* region = malloc(capacity + sizeof(ArenaRegion));
     assert(region && "malloc failed");
 
+    region->next = NULL;
+    region->prev = NULL;
     region->capacity = capacity;
+    region->used = 0;
     return region;
 }
 // initialises the arena with a starting region
@@ -85,7 +98,11 @@ void arena_free(Arena* arena) {
 // effectively forget what it has allocated
 void arena_clear(Arena* arena) {
     arena->head = arena->begin;
-    arena->used = 0;
+    ArenaRegion* curr = arena->begin;
+    while (curr) {
+        curr->used = 0;
+        curr = curr->next;
+    }
 }
 
 // allocates zeroed memory, aligns the head
@@ -95,16 +112,18 @@ void* arena_alloc(Arena* arena, size_t count, size_t size, size_t align) {
     
     ArenaRegion* region = arena->head;
     
-    ptrdiff_t padding = -(uintptr_t)((region->begin + arena->used)) & (align - 1);
-    ptrdiff_t free_space = region->capacity - arena->used;
+    ptrdiff_t padding = -(uintptr_t)((region->begin + region->used)) & (align - 1);
+    ptrdiff_t free_space = region->capacity - region->used;
     ptrdiff_t space_needed = count * size + padding;
-    if (free_space <= space_needed) {
+    if (free_space < space_needed) {
+        printf("EXPANDING ARENA!\n");
         // attempting to allocate more than ARENA_REGION_SIZE
         if (count * size >= ARENA_REGION_SIZE) {
             ArenaRegion* new = arena_create_region(count * size + ARENA_REGION_SIZE);
 
             arena->head = new;
-            new->next = region->next;
+            new->next = NULL;
+            new->prev = region;
             region->next = new;
         }
 
@@ -112,14 +131,14 @@ void* arena_alloc(Arena* arena, size_t count, size_t size, size_t align) {
         if (arena->head == NULL) {
             arena->head = arena_create_region(ARENA_REGION_SIZE);
             region->next = arena->head;
+            arena->head->prev = region;
         }
-        padding = -(uintptr_t)((region->begin + arena->used)) & (align - 1);
+        padding = -(uintptr_t)((region->begin + region->used)) & (align - 1);
         region = arena->head;
-        arena->used = 0;
     }
     
-    void* ptr = (region->begin + arena->used + padding);
-    arena->used += space_needed;
+    void* ptr = (region->begin + region->used + padding);
+    region->used += space_needed;
     memset(ptr, 0, count * size);
     
     return ptr; 
@@ -136,10 +155,10 @@ void* arena_realloc(Arena* arena, void* oldPtr, size_t oldCount, size_t newCount
     
     assert(newCount * size <= ARENA_REGION_SIZE && "allocations must be smaller than a whole block");
     ArenaRegion* region = arena->head;
-    if (region->begin + arena->used == (uint8_t*)oldPtr + oldCount * size) {
+    if (region->begin + region->used == (uint8_t*)oldPtr + oldCount * size) {
         ptrdiff_t spaceRequired = (newCount - oldCount) * size;
-        if (spaceRequired <= (ptrdiff_t)region->capacity - (ptrdiff_t)arena->used) {
-            arena->used += (newCount - oldCount) * size;
+        if (spaceRequired <= (ptrdiff_t)region->capacity - (ptrdiff_t)region->used) {
+            region->used += (newCount - oldCount) * size;
 
             return oldPtr;
         }
@@ -151,8 +170,22 @@ void* arena_realloc(Arena* arena, void* oldPtr, size_t oldCount, size_t newCount
 }
 // frees count * size bytes from the end of the arena
 void arena_pop(Arena* arena, size_t count, size_t size) {
-    
+    ArenaRegion* region = arena->head;
+    size_t space_to_free = count * size;
+    while (space_to_free > 0) {
+        if (region->used > space_to_free) {
+            region->used -= count * size;
+            return;
+        } else {
+            space_to_free -= region->used;
+            region->used = 0;
+            region = region->prev;
+            if (region == NULL) return;
+            arena->head = region;
+        }        
+    }
 }
+
 // duplicates what is stored in src
 void* arena_memdup(Arena* arena, const void* src, size_t size, size_t align) {
     void* ptr = arena_alloc(arena, 1, size, align);

@@ -19,7 +19,8 @@ typedef struct CommandList {
     isize curr;
     Command* commands;
     
-    Arena string_stack;
+    Arena inserted_stack;
+    Arena removed_stack;
 } CommandList;
 
 void reset_command(CommandList* commands);

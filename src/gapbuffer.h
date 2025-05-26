@@ -85,6 +85,7 @@ GapBufSlice gapbuf_getstrings(GapBuffer* gapbuf) {
 }
 GapBufSlice gapbuf_slice(GapBuffer* gapbuf, isize start, isize end) {
     if (start >= gapbuf->gap_begin) {
+        printf("1\n");
         // start is after gap
         // "abcdef[   ]ghihjlk"
         //             ^     ^
@@ -98,6 +99,7 @@ GapBufSlice gapbuf_slice(GapBuffer* gapbuf, isize start, isize end) {
         };
         return slice;
     } else if (end < gapbuf->gap_begin) {
+        printf("2\n");
         // end is before gap
         // "abcdef[   ]ghihjlk"
         //  ^   ^
@@ -108,13 +110,14 @@ GapBufSlice gapbuf_slice(GapBuffer* gapbuf, isize start, isize end) {
         };
         return slice;
     } else {
+        printf("3\n");
         // start and end are on opposite sides of the gap
         // "abcdef[   ]ghihjlk"
         //  ^               ^
         //  s               e
         GapBufSlice slice = {
-            .l = {.data = gapbuf->data, .count = gapbuf->gap_begin},
-            .r = {.data = gapbuf->data + gapbuf->gap_end, .count = gapbuf->capacity - gapbuf->gap_end},
+            .l = {.data = gapbuf->data + start, .count = gapbuf->gap_begin - start},
+            .r = {.data = gapbuf->data + gapbuf->gap_end + end, .count = end - gapbuf->gap_end},
         };
         return slice;
     }
