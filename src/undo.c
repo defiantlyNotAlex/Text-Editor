@@ -9,34 +9,7 @@ void reset_command(CommandList* commands) {
     commands->curr = 0;
     arena_clear(&commands->inserted_stack);
 }
-void undo_command(Text* txt, CommandList* commands) {
-    if (commands->curr <= 0) {
-        return;
-    }
-    commands->curr--;
-    Command command = commands->commands[commands->curr];
-    text_cursor_moveto(txt, command.col, command.line);
-    text_cursor_remove_after(txt, command.inserted.count);
-    text_cursor_insert(txt, command.removed.data, command.removed.count);
-
-    text_update_line_offsets(txt);
-    text_cursor_update_position(txt);
-}
-void redo_command(Text* txt, CommandList* commands) {
-    if (commands->curr >= arrlist_count(commands->commands)) {
-        return;
-    }
-    Command command = commands->commands[commands->curr];
-    text_cursor_moveto(txt, command.col, command.line);
-    text_cursor_remove_after(txt, command.removed.count);
-    text_cursor_insert(txt, command.inserted.data, command.inserted.count);
-    commands->curr++;
-
-    text_update_line_offsets(txt);
-    text_cursor_update_position(txt);
-}
-
-void insert_command(Text* txt, CommandList* commands, String inserted, String removed, isize col, isize row) {
+void insert_command(CommandList* commands, String inserted, String removed, isize col, isize row) {
     Command command = {
         .line = row,
         .col = col,

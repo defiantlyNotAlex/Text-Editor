@@ -37,10 +37,10 @@ void gapbuf_insert(GapBuffer* gapbuf, char c);
 void gapbuf_insertn(GapBuffer* gapbuf, const char* buf, isize n);
 
 void gapbuf_remove(GapBuffer* gapbuf);
-isize gapbuf_removen(GapBuffer* gapbuf, isize n);
+String gapbuf_removen(GapBuffer* gapbuf, isize n);
 
 void gapbuf_remove_after(GapBuffer* gapbuf);
-isize gapbuf_removen_after(GapBuffer* gapbuf, isize n);
+String gapbuf_removen_after(GapBuffer* gapbuf, isize n);
 
 void gapbuf_print(GapBuffer* gapbuf);
 
@@ -192,15 +192,16 @@ void gapbuf_remove(GapBuffer* gapbuf) {
     if (gapbuf->gap_begin == 0) return;
     gapbuf->gap_begin--;
 }
-isize gapbuf_removen(GapBuffer* gapbuf, isize n) {
+String gapbuf_removen(GapBuffer* gapbuf, isize n) {
+    isize len = 0;
     if (gapbuf->gap_begin <= n) {
+        len = gapbuf->gap_begin;
         gapbuf->gap_begin = 0;
-        return gapbuf->gap_begin;
-    }
-    else {
+    } else {
         gapbuf->gap_begin -= n;
-        return n;
+        len = n;
     }
+    return (String) {.data = gapbuf->data + gapbuf->gap_begin, .count = len};
 }
 
 void gapbuf_remove_after(GapBuffer* gapbuf) {
@@ -208,15 +209,17 @@ void gapbuf_remove_after(GapBuffer* gapbuf) {
     gapbuf->gap_end++;
 }
 
-isize gapbuf_removen_after(GapBuffer* gapbuf, isize n) {
+String gapbuf_removen_after(GapBuffer* gapbuf, isize n) {
+    isize len = 0;
     if (gapbuf->gap_end + n > gapbuf->capacity) {
         gapbuf->gap_end = gapbuf->capacity;
-        return gapbuf->capacity - gapbuf->gap_end;
-    }
-    else {
+        len = gapbuf->capacity - gapbuf->gap_end;
+    } else {
         gapbuf->gap_end += n;
-        return n;
+        len = n;
     }
+    return (String) {.data = gapbuf->data + gapbuf->gap_end - len, .count = len};
+
 }
 
 void gapbuf_print(GapBuffer* gapbuf) {

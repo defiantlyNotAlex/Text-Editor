@@ -4,7 +4,6 @@
 #include "short_types.h"
 #include "stringbuilder.h"
 #include "arena.h"
-#include "text.h"
 #include "arraylist.h"
 
 typedef struct Command {
@@ -24,8 +23,8 @@ typedef struct CommandList {
 } CommandList;
 
 void reset_command(CommandList* commands);
-void undo_command(Text* txt, CommandList* commands);
-void redo_command(Text* txt, CommandList* commands);
-void insert_command(Text* txt, CommandList* commands, String inserted, String removed, isize col, isize row);
+void insert_command(CommandList* commands, String inserted, String removed, isize col, isize row);
+Command pop_command(CommandList* commands);
+void update_command(CommandList* commands, String inserted_new, String removed_new);
 
 #endif //UNDO_H_

@@ -139,19 +139,46 @@ isize text_cursor_idx(Text* txt) {
     return txt->gapbuf.gap_begin;
 }
 
-void text_cursor_insert(Text* txt, const char* buf, isize n) {
-    gapbuf_insertn(&txt->gapbuf, buf, n);
+void text_cursor_insert(Text* txt, String insert) {
+    String deleted = text_delete_selection(txt);
+    insert_command(&txt->commands, insert, deleted, txt->cursor_col, txt->cursor_row);
+    gapbuf_insertn(&txt->gapbuf, insert.data, insert.count);
+
+    text_update_line_offsets(txt);
+    text_cursor_update_position(txt);
 }
-String text_cursor_remove_before(Text* txt, isize n) {
-    gapbuf_removen(&txt->gapbuf, n);
-    return (String) {.data = txt->gapbuf.data + txt->gapbuf.gap_begin, .count = n};
+void text_cursor_remove_before(Text* txt, isize n) {
+    String removed = {0};
+    if (txt->selected) {
+        removed = text_delete_selection(txt);
+    } else {
+        isize r = text_cursor_idx(txt);
+        text_cursor_move_codepoints(txt, -n);
+        isize l = text_cursor_idx(txt);
+        removed = gapbuf_removen_after(&txt->gapbuf, r - l);
+    }
+    
+    insert_command(&txt->commands, (String){0}, removed, txt->cursor_col, txt->cursor_row);
+    text_update_line_offsets(txt);
+    text_cursor_update_position(txt);
 }
-String text_cursor_remove_after(Text* txt, isize n) {
-    gapbuf_removen_after(&txt->gapbuf, n);
-    return (String) {.data = txt->gapbuf.data + txt->gapbuf.gap_end - n, .count = n};
+void text_cursor_remove_after(Text* txt, isize n) {
+    String removed = {0};
+    if (txt->selected) {
+        removed = text_delete_selection(txt);
+    } else {
+        isize l = text_cursor_idx(txt);
+        text_cursor_move_codepoints(txt, n);
+        isize r = text_cursor_idx(txt);
+        removed = gapbuf_removen_after(&txt->gapbuf, r - l);
+    }
+    
+    insert_command(&txt->commands, (String){0}, removed, txt->cursor_col, txt->cursor_row);
+    text_update_line_offsets(txt);
+    text_cursor_update_position(txt);
 }
 void text_update_line_offsets(Text* txt) {
-    arrlist_print(txt->line_offsets, "%lld", ",");
+    //arrlist_print(txt->line_offsets, "%lld", ",");
     arrlist_setcount(txt->line_offsets, 0);
 
     GapBufSlice strings = gapbuf_getstrings(&txt->gapbuf);
@@ -172,6 +199,7 @@ void text_cursor_update_position(Text* txt) {
 }
 
 String text_delete_selection(Text* txt) {
+    if (!txt->selected) return (String) {0};
     txt->selected = false;
     isize l, r;
     if (txt->selection_begin < txt->selection_end) {
@@ -182,7 +210,7 @@ String text_delete_selection(Text* txt) {
         r = txt->selection_begin;
     }
     text_cursor_move(txt, l - text_cursor_idx(txt));
-    text_cursor_remove_after(txt, r - l);
+    gapbuf_removen_after(&txt->gapbuf, r - l);
     txt->selection_begin = l;
 
     text_update_line_offsets(txt);
@@ -205,7 +233,6 @@ void text_copy_selection_to_clipboard(Text* txt) {
     memcpy(buffer, slice.l.data, slice.l.count);
     memcpy(buffer + slice.l.count, slice.r.data, slice.r.count);
     buffer[count] = '\0';
-    printf("%lld, \"%s\"", count, buffer);
 
     SetClipboardText(buffer);
     free(buffer);
@@ -248,4 +275,35 @@ void text_prompt_filename(StringBuilder* sb) {
     string_clear(sb);
     printf("filename: ");
     string_scanln(sb);
+}
+
+void text_undo(Text* txt) {
+    CommandList* commands = &txt->commands;
+
+    if (commands->curr <= 0) {
+        return;
+    }
+    commands->curr--;
+    Command command = commands->commands[commands->curr];
+    text_cursor_moveto(txt, command.col, command.line);
+    gapbuf_removen_after(&txt->gapbuf, command.inserted.count);
+    gapbuf_insertn(&txt->gapbuf, command.removed.data, command.removed.count);
+
+    text_update_line_offsets(txt);
+    text_cursor_update_position(txt);
+}
+void text_redo(Text* txt) {
+    CommandList* commands = &txt->commands;
+
+    if (commands->curr >= arrlist_count(commands->commands)) {
+        return;
+    }
+    Command command = commands->commands[commands->curr];
+    text_cursor_moveto(txt, command.col, command.line);
+    gapbuf_removen_after(&txt->gapbuf, command.removed.count);
+    gapbuf_insertn(&txt->gapbuf, command.inserted.data, command.inserted.count);
+    commands->curr++;
+
+    text_update_line_offsets(txt);
+    text_cursor_update_position(txt);
 }

@@ -123,7 +123,7 @@ void text_draw(TextCamera* camera, Text* txt, Font font) {
         if (row == txt->cursor_row && col == txt->cursor_col) {
             DrawRectangle(curr_pos.x, curr_pos.y, ceilf(camera->scale * 0.5) + 1, font.baseSize * camera->scale, BLUE);
         }
-        if (real_col > 80 || curr_pos.x > screen_width - padding * 2) {
+        if (real_col >= 80 || curr_pos.x > screen_width - padding * 2) {
             real_col = 0;
             curr_pos.x = padding;
             curr_pos.y += font.baseSize * camera->scale;
@@ -211,18 +211,8 @@ int main(i32 argc, char** argv) {
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_V)) {
             // ctrl v
-            String deleted = {0};
-            if (txt.selected) {
-                deleted = text_delete_selection(&txt);
-            }
-            isize col = txt.cursor_col;
-            isize row = txt.cursor_row;
             const char* str = GetClipboardText();
-            insert_command(&txt, &command_list, string_from_cstring(str), deleted, col, row);
-            text_cursor_insert(&txt, str, strlen(str));
-
-            text_update_line_offsets(&txt);
-            text_cursor_update_position(&txt);
+            text_cursor_insert(&txt, string_from_cstring(str));
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_X)) {
             // ctrl x
@@ -231,17 +221,17 @@ int main(i32 argc, char** argv) {
             String deleted = text_delete_selection(&txt);
             isize col = txt.cursor_col;
             isize row = txt.cursor_row;
-            insert_command(&txt, &command_list, (String){0}, deleted, col, row);
+            insert_command(&txt.commands, (String){0}, deleted, col, row);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_C)) {
             // ctrl c
             text_copy_selection_to_clipboard(&txt);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Z)) {
-            undo_command(&txt, &command_list);
+            text_undo(&txt);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Y)) {
-            redo_command(&txt, &command_list);
+            text_redo(&txt);
         }
 
         KeyboardKey key = 0;
@@ -335,29 +325,14 @@ int main(i32 argc, char** argv) {
                 }
             }
             
-            if (txt.selected && (key == KEY_BACKSPACE || key == KEY_DELETE)) {
-                String deleted = text_delete_selection(&txt);
-                isize col = txt.cursor_col;
-                isize row = txt.cursor_row;
-                insert_command(&txt, &command_list, (String){0}, deleted, col, row);
-            } else if (key == KEY_BACKSPACE) {
-                String deleted = text_cursor_remove_before(&txt, 1);
-                isize col = txt.cursor_col;
-                isize row = txt.cursor_row;
-                insert_command(&txt, &command_list, (String){0}, deleted, col, row);
+            
+            if (key == KEY_BACKSPACE) {
+                text_cursor_remove_before(&txt, 1);
             } else if (key == KEY_DELETE) {
-                String deleted = text_cursor_remove_after(&txt, 1);
-                isize col = txt.cursor_col;
-                isize row = txt.cursor_row;
-                insert_command(&txt, &command_list, (String){0}, deleted, col, row);
+                text_cursor_remove_after(&txt, 1);
             }
             if (s != NULL && !IsKeyDown(KEY_LEFT_CONTROL)) {
-                String deleted = {0};
-                if (txt.selected) deleted = text_delete_selection(&txt);
-                isize col = txt.cursor_col;
-                isize row = txt.cursor_row;
-                insert_command(&txt, &command_list, string_from_cstring(s), deleted, col, row);
-                text_cursor_insert(&txt, s, strlen(s));
+                text_cursor_insert(&txt, string_from_cstring(s));
             }
         } while(key != '\0');
         

@@ -116,7 +116,6 @@ void* arena_alloc(Arena* arena, size_t count, size_t size, size_t align) {
     ptrdiff_t free_space = region->capacity - region->used;
     ptrdiff_t space_needed = count * size + padding;
     if (free_space < space_needed) {
-        printf("EXPANDING ARENA!\n");
         // attempting to allocate more than ARENA_REGION_SIZE
         if (count * size >= ARENA_REGION_SIZE) {
             ArenaRegion* new = arena_create_region(count * size + ARENA_REGION_SIZE);
