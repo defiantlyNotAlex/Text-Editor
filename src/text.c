@@ -285,12 +285,17 @@ void text_undo(Text* txt) {
     }
     commands->curr--;
     Command command = commands->commands[commands->curr];
-    text_cursor_moveto(txt, command.col, command.line);
-    gapbuf_removen_after(&txt->gapbuf, command.inserted.count);
-    gapbuf_insertn(&txt->gapbuf, command.removed.data, command.removed.count);
 
-    text_update_line_offsets(txt);
-    text_cursor_update_position(txt);
+    for (isize i = 0; i < arrlist_count(command.sub_commands); i++) {
+        SubCommand subcommand = command.sub_commands[i];
+
+        text_cursor_moveto(txt, subcommand.col, subcommand.line);
+        gapbuf_removen_after(&txt->gapbuf, subcommand.inserted.count);
+        gapbuf_insertn(&txt->gapbuf, subcommand.removed.data, subcommand.removed.count);
+    
+        text_update_line_offsets(txt);
+        text_cursor_update_position(txt);
+    } 
 }
 void text_redo(Text* txt) {
     CommandList* commands = &txt->commands;
@@ -299,11 +304,16 @@ void text_redo(Text* txt) {
         return;
     }
     Command command = commands->commands[commands->curr];
-    text_cursor_moveto(txt, command.col, command.line);
-    gapbuf_removen_after(&txt->gapbuf, command.removed.count);
-    gapbuf_insertn(&txt->gapbuf, command.inserted.data, command.inserted.count);
+    for (isize i = 0; i < arrlist_count(command.sub_commands); i++) {
+        SubCommand subcommand = command.sub_commands[i];
+
+        text_cursor_moveto(txt, subcommand.col, subcommand.line);
+        gapbuf_removen_after(&txt->gapbuf, subcommand.removed.count);
+        gapbuf_insertn(&txt->gapbuf, subcommand.inserted.data, subcommand.inserted.count);
+
+        text_update_line_offsets(txt);
+        text_cursor_update_position(txt);
+    }
     commands->curr++;
 
-    text_update_line_offsets(txt);
-    text_cursor_update_position(txt);
 }

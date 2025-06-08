@@ -6,12 +6,16 @@
 #include "arena.h"
 #include "arraylist.h"
 
-typedef struct Command {
+typedef struct SubCommand {
     isize line;
     isize col;
 
     String inserted;
     String removed;
+} SubCommand;
+
+typedef struct Command {
+    SubCommand* sub_commands;
 } Command;
 
 typedef struct CommandList {
@@ -20,11 +24,15 @@ typedef struct CommandList {
     
     Arena inserted_stack;
     Arena removed_stack;
+    Arena command_stack;
+    bool unfinished_command;
 } CommandList;
 
 void reset_command(CommandList* commands);
 void insert_command(CommandList* commands, String inserted, String removed, isize col, isize row);
-Command pop_command(CommandList* commands);
-void update_command(CommandList* commands, String inserted_new, String removed_new);
+
+void begin_command(CommandList* commands);
+void end_command(CommandList* commands);
+
 
 #endif //UNDO_H_

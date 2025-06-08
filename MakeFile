@@ -1,7 +1,11 @@
 all: compile link
 
+CC=gcc
+CFLAGS=-I src/include -std=c11 -Wall -g -O0
+LDFLAGS=-L src/lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
+
 compile:
-	gcc -I src/include -c src/*.c -O1 -std=c11 -Wall -g
+	$(CC) $(CFLAGS) -c src/*.c 
 link:
-	gcc *.o -g -o main.exe -O1 -Wall -std=c11 -I src/include/ -L src/lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
+	$(CC) $(CFLAGS) *.o $(LDFLAGS) -o main.exe
 	

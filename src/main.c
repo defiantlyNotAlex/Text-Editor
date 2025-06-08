@@ -210,18 +210,21 @@ int main(i32 argc, char** argv) {
             string_free(&sb);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_V)) {
-            // ctrl v
+            begin_command(&txt.commands);
+
             const char* str = GetClipboardText();
             text_cursor_insert(&txt, string_from_cstring(str));
+            end_command(&txt.commands);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_X)) {
-            // ctrl x
+            begin_command(&txt.commands);
             
             text_copy_selection_to_clipboard(&txt);
             String deleted = text_delete_selection(&txt);
             isize col = txt.cursor_col;
             isize row = txt.cursor_row;
             insert_command(&txt.commands, (String){0}, deleted, col, row);
+            end_command(&txt.commands);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_C)) {
             // ctrl c
@@ -327,12 +330,18 @@ int main(i32 argc, char** argv) {
             
             
             if (key == KEY_BACKSPACE) {
+                begin_command(&txt.commands);
                 text_cursor_remove_before(&txt, 1);
+                end_command(&txt.commands);
             } else if (key == KEY_DELETE) {
+                begin_command(&txt.commands);
                 text_cursor_remove_after(&txt, 1);
+                end_command(&txt.commands);
             }
             if (s != NULL && !IsKeyDown(KEY_LEFT_CONTROL)) {
+                begin_command(&txt.commands);
                 text_cursor_insert(&txt, string_from_cstring(s));
+                end_command(&txt.commands);
             }
         } while(key != '\0');
         
