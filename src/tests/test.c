@@ -1,4 +1,3 @@
-/*
 #define ARENA_IMPLEMENTATION
 #include "arena.h"
 
@@ -15,9 +14,9 @@ int main() {
 
     arena_debug(&a);
     arena_pop(&a, 10, 10);
+
     arena_debug(&a);
 
 
     printf("Done!\n");
 }
-    */

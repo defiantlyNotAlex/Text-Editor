@@ -40,13 +40,17 @@ void text_cursor_insert(Text* txt, String insert);
 void text_cursor_remove_before(Text* txt, isize n);
 void text_cursor_remove_after(Text* txt, isize n);
 
+void text_add_transaction(Text* txt, String modified, bool removed);
+void text_begin_command(Text* txt);
+void text_end_command(Text* txt);
+
 void text_undo(Text* txt);
 void text_redo(Text* txt);
 
 void text_update_line_offsets(Text* txt);
 void text_cursor_update_position(Text* txt);
 
-String text_delete_selection(Text* txt);
+void text_delete_selection(Text* txt);
 void text_copy_selection_to_clipboard(Text* txt);
 void text_copy_and_delete_selection_to_clipboard(Text* txt);
 

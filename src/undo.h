@@ -6,33 +6,41 @@
 #include "arena.h"
 #include "arraylist.h"
 
-typedef struct SubCommand {
+typedef struct Transaction {
     isize line;
     isize col;
 
-    String inserted;
-    String removed;
-} SubCommand;
+    String modified;
+    bool removed;
+} Transaction;
 
 typedef struct Command {
-    SubCommand* sub_commands;
+    Transaction* data;
+    isize count;
+    isize capacity;
 } Command;
 
 typedef struct CommandList {
+    Command* data;
+    isize capacity;
+
     isize curr;
-    Command* commands;
+    isize end;
     
-    Arena inserted_stack;
-    Arena removed_stack;
+    Arena string_stack;
     Arena command_stack;
+
     bool unfinished_command;
 } CommandList;
 
 void reset_command(CommandList* commands);
-void insert_command(CommandList* commands, String inserted, String removed, isize col, isize row);
+void insert_command(CommandList* commands, String modified, bool inserted, isize col, isize row);
+
+void append_transaction(CommandList* commands, Transaction transaction);
 
 void begin_command(CommandList* commands);
 void end_command(CommandList* commands);
+
 
 
 #endif //UNDO_H_

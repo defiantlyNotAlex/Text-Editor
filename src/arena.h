@@ -45,6 +45,9 @@ void* arena_memdup(Arena* arena, const void* src, size_t size, size_t align);
 char* arena_strdup(Arena* arena, const char* str);
 char* arena_sprintf(Arena* arena, const char* fmt, ...);
 
+#include "stringbuilder.h"
+String arena_string_dup(Arena* arena, String string);
+
 #define arena_new(arena, count, type) (type*)arena_alloc(arena, count, sizeof(type), alignof(type))
 #define arena_expand(arena, ptr, oldCount, newCount, type) (type*)arena_realloc(arena, ptr, oldCount, newCount, sizeof(type), alignof(type))
 
@@ -170,6 +173,8 @@ void* arena_realloc(Arena* arena, void* oldPtr, size_t oldCount, size_t newCount
 // frees count * size bytes from the end of the arena
 void arena_pop(Arena* arena, size_t count, size_t size) {
     ArenaRegion* region = arena->head;
+    if (region == NULL) return;
+
     size_t space_to_free = count * size;
     while (space_to_free > 0) {
         if (region->used > space_to_free) {
@@ -213,6 +218,11 @@ char* arena_sprintf(Arena* arena, const char* fmt, ...) {
     vsnprintf(str, len + 1, fmt, args);
     va_end (args);
     return str;
+}
+
+String arena_string_dup(Arena* arena, String string) {
+    String result = {.data = arena_memdup(arena, string.data, string.count, 1), .count = string.count};
+    return result;
 }
 
 #endif // ARENA_IMPLEMENTATION

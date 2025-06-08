@@ -1,11 +1,11 @@
 #include <raylib.h>
 #include <raymath.h>
+#define STRINGBUILDER_IMPLEMENTATION
+#include "stringbuilder.h"
 #define ARENA_IMPLEMENTATION
 #include "arena.h"
 #define ARRAYLIST_IMPLEMENTATION
 #include "arraylist.h"
-#define STRINGBUILDER_IMPLEMENTATION
-#include "stringbuilder.h"
 
 #include "short_types.h"
 
@@ -180,6 +180,12 @@ bool still_word(Codepoint c) {
     return true;
 }
 
+bool is_alpha_numeric(Codepoint c) {
+    if (string_is_ascii_alpha(c) || string_is_digit(c, NULL) || c == '_') {
+        return true;
+    }
+    return false;
+}
 
 int main(i32 argc, char** argv) {
     SetTraceLogLevel(LOG_ERROR);
@@ -197,6 +203,10 @@ int main(i32 argc, char** argv) {
     if (argc > 1) {
         text_load_file(&txt, argv[1]);
     }
+
+    bool alpha_num_streak = false;
+    bool space_streak = false;
+    bool delete_streak = false;
 
     while(!WindowShouldClose()) {
 
@@ -218,12 +228,7 @@ int main(i32 argc, char** argv) {
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_X)) {
             begin_command(&txt.commands);
-            
-            text_copy_selection_to_clipboard(&txt);
-            String deleted = text_delete_selection(&txt);
-            isize col = txt.cursor_col;
-            isize row = txt.cursor_row;
-            insert_command(&txt.commands, (String){0}, deleted, col, row);
+            text_copy_and_delete_selection_to_clipboard(&txt);
             end_command(&txt.commands);
         }
         if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_C)) {
@@ -328,20 +333,36 @@ int main(i32 argc, char** argv) {
                 }
             }
             
-            
-            if (key == KEY_BACKSPACE) {
-                begin_command(&txt.commands);
-                text_cursor_remove_before(&txt, 1);
-                end_command(&txt.commands);
-            } else if (key == KEY_DELETE) {
-                begin_command(&txt.commands);
-                text_cursor_remove_after(&txt, 1);
-                end_command(&txt.commands);
+
+            if (key == KEY_BACKSPACE || key == KEY_DELETE) {
+                if (!delete_streak) {
+                    begin_command(&txt.commands);
+                }
+                
+                if (key == KEY_BACKSPACE) {
+                    text_cursor_remove_before(&txt, 1);
+                } else if (key == KEY_DELETE) {
+                    text_cursor_remove_after(&txt, 1);
+                }
+
+                delete_streak = true;
+                alpha_num_streak = false;
+                space_streak = false;
             }
             if (s != NULL && !IsKeyDown(KEY_LEFT_CONTROL)) {
-                begin_command(&txt.commands);
+                
+                if (alpha_num_streak && (is_alpha_numeric(*s))) {}
+                else if (space_streak && (string_is_ascii_whitespace(*s))) {}
+                else begin_command(&txt.commands);
+
                 text_cursor_insert(&txt, string_from_cstring(s));
-                end_command(&txt.commands);
+
+                alpha_num_streak = false;
+                space_streak = false;
+                delete_streak = false;
+
+                if (is_alpha_numeric(*s)) alpha_num_streak = true;
+                if (string_is_ascii_whitespace(*s)) space_streak = true;
             }
         } while(key != '\0');
         

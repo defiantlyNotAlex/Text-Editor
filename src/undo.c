@@ -1,49 +1,64 @@
 #include "undo.h"
+#include <stdlib.h>
 
-String string_arena_dup(Arena* arena, String string) {
-    String result = {.data = arena_memdup(arena, string.data, string.count, 1), .count = string.count};
-    return result;
-}
+
 void reset_command(CommandList* commands) {
-    arrlist_setcount(commands->commands, 0);
-    commands->curr = 0;
-    arena_clear(&commands->inserted_stack);
-}
-void insert_command(CommandList* commands, String inserted, String removed, isize col, isize row) {
-    SubCommand command = {
-        .line = row,
-        .col = col,
-
-        .inserted = string_arena_dup(&commands->inserted_stack, inserted),
-        .removed = string_arena_dup(&commands->removed_stack, removed),
-    };
-    arrlist_append(commands->commands[commands->curr].sub_commands, command);
-}
-// finish unfinished commands
-// create subcommand list
-// pop all commands after itself
-void begin_command(CommandList* command_list) {
-    if (command_list->unfinished_command) end_command(command_list);
-    command_list->unfinished_command = true;
-
-    if (arrlist_count(command_list->commands) != command_list->curr) {
-        // pops all commands after this one
-        for (isize i = arrlist_count(command_list->commands) - 1; i > command_list->curr; i--) {
-            for (isize j = 0; j < arrlist_count(command_list->commands[i].sub_commands); j++) {
-                SubCommand* sub_comm = command_list->commands[i].sub_commands;
-                arena_pop(&command_list->inserted_stack, sub_comm[i].inserted.count, 1);
-                arena_pop(&command_list->removed_stack , sub_comm[i].removed.count , 1);
-                arrlist_setcount(sub_comm, 0);
-            }
-        }
+    arena_clear(&commands->string_stack);
+    for (isize i = 0; i < commands->end; i++) {
+        free(commands->data[i].data);
     }
-    arrlist_setcount(command_list->commands, command_list->curr);
+    memset(commands->data, 0, commands->end * sizeof(Command));
+    commands->curr = 0;
+    commands->end = 0;
 }
-// increment curr
+void append_transaction(CommandList* commands, Transaction transaction) {
+    Command* command = &commands->data[commands->curr];
+
+    // out of capacity
+    if (command->count == command->capacity) {
+        isize new_cap = 8;
+        if (new_cap < command->capacity * 2) new_cap = command->capacity * 2;
+        command->data = realloc(command->data, new_cap * sizeof(Transaction));
+        command->capacity = new_cap;
+    }
+
+    command->data[command->count++] = transaction;
+}
+void begin_command(CommandList* commands) {
+    if (commands->unfinished_command) end_command(commands);
+    commands->unfinished_command = true;
+
+    // out of capacity
+    if (commands->end == commands->capacity) {
+        isize new_cap = 8;
+        if (new_cap < commands->capacity * 2) new_cap = commands->capacity * 2;
+        commands->data = realloc(commands->data, new_cap * sizeof(Command));
+        commands->capacity = new_cap;
+    }
+
+    if (commands->end != commands->curr) {
+        // pops all commands after this one
+        isize size = 0;
+        for (isize i = commands->curr; i < commands->end; i++) {
+            Command* command = &commands->data[i];
+            for (isize j = 0; j < command->count; j++) {
+                Transaction* transaction = &commands->data[i].data[j];
+                size += transaction->modified.count;
+            }
+            free(command->data);
+            command->data = NULL;
+            command->count = 0;
+            command->capacity = 0;
+        }
+        arena_pop(&commands->string_stack, size, 1);
+        commands->end = commands->curr;
+    }
+    commands->data[commands->curr].data = NULL;
+    commands->data[commands->curr].count = 0;
+    commands->data[commands->curr].capacity = 0;
+}
 void end_command(CommandList* commands) {
     commands->curr++;
-    arrlist_setcount(commands->commands, commands->curr);
+    commands->end++;
     commands->unfinished_command = false;
 }
-// add character
-// remove charachter

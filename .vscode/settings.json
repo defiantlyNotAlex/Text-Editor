@@ -1,6 +1,12 @@
 {
     "files.associations": {
         "*.h": "c",
-        "string": "c"
+        "string": "c",
+        "array": "c",
+        "string_view": "c",
+        "deque": "c",
+        "unordered_map": "c",
+        "vector": "c",
+        "initializer_list": "c"
     }
 }

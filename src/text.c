@@ -140,40 +140,63 @@ isize text_cursor_idx(Text* txt) {
 }
 
 void text_cursor_insert(Text* txt, String insert) {
-    String deleted = text_delete_selection(txt);
-    insert_command(&txt->commands, insert, deleted, txt->cursor_col, txt->cursor_row);
+    text_delete_selection(txt);
+    append_transaction(
+        &txt->commands, 
+        (Transaction) {
+            .col = txt->cursor_col, 
+            .line = txt->cursor_row, 
+            .modified = insert, 
+            .removed = false
+        }
+    );
     gapbuf_insertn(&txt->gapbuf, insert.data, insert.count);
 
     text_update_line_offsets(txt);
     text_cursor_update_position(txt);
 }
 void text_cursor_remove_before(Text* txt, isize n) {
-    String removed = {0};
     if (txt->selected) {
-        removed = text_delete_selection(txt);
-    } else {
-        isize r = text_cursor_idx(txt);
-        text_cursor_move_codepoints(txt, -n);
-        isize l = text_cursor_idx(txt);
-        removed = gapbuf_removen_after(&txt->gapbuf, r - l);
+        text_delete_selection(txt);
+        return;
     }
+    isize r = text_cursor_idx(txt);
+    text_cursor_move_codepoints(txt, -n);
+    isize l = text_cursor_idx(txt);
+    String removed = gapbuf_removen_after(&txt->gapbuf, r - l);
     
-    insert_command(&txt->commands, (String){0}, removed, txt->cursor_col, txt->cursor_row);
+    append_transaction(
+        &txt->commands, 
+        (Transaction) {
+            .col = txt->cursor_col, 
+            .line = txt->cursor_row, 
+            .modified = removed, 
+            .removed = true
+        }
+    );
+
     text_update_line_offsets(txt);
     text_cursor_update_position(txt);
 }
 void text_cursor_remove_after(Text* txt, isize n) {
-    String removed = {0};
     if (txt->selected) {
-        removed = text_delete_selection(txt);
-    } else {
-        isize l = text_cursor_idx(txt);
-        text_cursor_move_codepoints(txt, n);
-        isize r = text_cursor_idx(txt);
-        removed = gapbuf_removen_after(&txt->gapbuf, r - l);
+        text_delete_selection(txt);
+        return;
     }
+    isize l = text_cursor_idx(txt);
+    text_cursor_move_codepoints(txt, n);
+    isize r = text_cursor_idx(txt);
+    String removed = gapbuf_removen_after(&txt->gapbuf, r - l);
     
-    insert_command(&txt->commands, (String){0}, removed, txt->cursor_col, txt->cursor_row);
+    append_transaction(
+        &txt->commands, 
+        (Transaction) {
+            .col = txt->cursor_col, 
+            .line = txt->cursor_row, 
+            .modified = removed, 
+            .removed = true
+        }
+    );
     text_update_line_offsets(txt);
     text_cursor_update_position(txt);
 }
@@ -198,8 +221,8 @@ void text_cursor_update_position(Text* txt) {
     txt->cursor_row = pos.row;
 }
 
-String text_delete_selection(Text* txt) {
-    if (!txt->selected) return (String) {0};
+void text_delete_selection(Text* txt) {
+    if (!txt->selected) return;
     txt->selected = false;
     isize l, r;
     if (txt->selection_begin < txt->selection_end) {
@@ -215,7 +238,7 @@ String text_delete_selection(Text* txt) {
 
     text_update_line_offsets(txt);
     text_cursor_update_position(txt);
-    return (String){.data = txt->gapbuf.data + txt->gapbuf.gap_begin, r - l};
+    text_add_transaction(txt, (String){.data = txt->gapbuf.data + txt->gapbuf.gap_begin, r - l}, true);
 }
 void text_copy_selection_to_clipboard(Text* txt) {
     isize l, r;
@@ -236,6 +259,11 @@ void text_copy_selection_to_clipboard(Text* txt) {
 
     SetClipboardText(buffer);
     free(buffer);
+}
+
+void text_copy_and_delete_selection_to_clipboard(Text* txt) {
+    text_copy_selection_to_clipboard(txt);
+    text_delete_selection(txt);
 }
 
 void text_select_begin(Text* txt) {
@@ -277,21 +305,43 @@ void text_prompt_filename(StringBuilder* sb) {
     string_scanln(sb);
 }
 
+void text_add_transaction(Text* txt, String modified, bool removed) {
+    append_transaction(
+        &txt->commands,
+        (Transaction) {
+            .col = txt->cursor_col,
+            .line = txt->cursor_row,
+            .modified = arena_string_dup(&txt->commands.string_stack, modified),
+            .removed = removed,
+        }
+    );
+}
+void text_begin_command(Text* txt) {
+    begin_command(&txt->commands);
+}
+void text_end_command(Text* txt) {
+    end_command(&txt->commands);
+}
+
 void text_undo(Text* txt) {
     CommandList* commands = &txt->commands;
+    if (commands->unfinished_command) text_end_command(txt);
 
     if (commands->curr <= 0) {
         return;
     }
     commands->curr--;
-    Command command = commands->commands[commands->curr];
+    Command command = commands->data[commands->curr];
 
-    for (isize i = 0; i < arrlist_count(command.sub_commands); i++) {
-        SubCommand subcommand = command.sub_commands[i];
+    for (isize i = command.count - 1; i >= 0; i--) {
+        Transaction transaction = command.data[i];
 
-        text_cursor_moveto(txt, subcommand.col, subcommand.line);
-        gapbuf_removen_after(&txt->gapbuf, subcommand.inserted.count);
-        gapbuf_insertn(&txt->gapbuf, subcommand.removed.data, subcommand.removed.count);
+        text_cursor_moveto(txt, transaction.col, transaction.line);
+        if (transaction.removed) {
+            gapbuf_insertn(&txt->gapbuf, transaction.modified.data, transaction.modified.count);
+        } else {
+            gapbuf_removen_after(&txt->gapbuf, transaction.modified.count);
+        }
     
         text_update_line_offsets(txt);
         text_cursor_update_position(txt);
@@ -300,20 +350,24 @@ void text_undo(Text* txt) {
 void text_redo(Text* txt) {
     CommandList* commands = &txt->commands;
 
-    if (commands->curr >= arrlist_count(commands->commands)) {
+    if (commands->curr >= commands->end) {
         return;
     }
-    Command command = commands->commands[commands->curr];
-    for (isize i = 0; i < arrlist_count(command.sub_commands); i++) {
-        SubCommand subcommand = command.sub_commands[i];
+    Command command = commands->data[commands->curr];
 
-        text_cursor_moveto(txt, subcommand.col, subcommand.line);
-        gapbuf_removen_after(&txt->gapbuf, subcommand.removed.count);
-        gapbuf_insertn(&txt->gapbuf, subcommand.inserted.data, subcommand.inserted.count);
+    for (isize i = 0; i < command.count; i++) {
+        Transaction transaction = command.data[i];
 
+        text_cursor_moveto(txt, transaction.col, transaction.line);
+        if (transaction.removed) {
+            gapbuf_removen_after(&txt->gapbuf, transaction.modified.count);
+        } else {
+            gapbuf_insertn(&txt->gapbuf, transaction.modified.data, transaction.modified.count);
+        }
+    
         text_update_line_offsets(txt);
         text_cursor_update_position(txt);
     }
-    commands->curr++;
 
+    commands->curr++;
 }
