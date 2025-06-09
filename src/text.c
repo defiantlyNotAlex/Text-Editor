@@ -141,15 +141,9 @@ isize text_cursor_idx(Text* txt) {
 
 void text_cursor_insert(Text* txt, String insert) {
     text_delete_selection(txt);
-    append_transaction(
-        &txt->commands, 
-        (Transaction) {
-            .col = txt->cursor_col, 
-            .line = txt->cursor_row, 
-            .modified = insert, 
-            .removed = false
-        }
-    );
+
+    text_add_transaction(txt, insert, false);
+
     gapbuf_insertn(&txt->gapbuf, insert.data, insert.count);
 
     text_update_line_offsets(txt);
@@ -165,15 +159,7 @@ void text_cursor_remove_before(Text* txt, isize n) {
     isize l = text_cursor_idx(txt);
     String removed = gapbuf_removen_after(&txt->gapbuf, r - l);
     
-    append_transaction(
-        &txt->commands, 
-        (Transaction) {
-            .col = txt->cursor_col, 
-            .line = txt->cursor_row, 
-            .modified = removed, 
-            .removed = true
-        }
-    );
+    text_add_transaction(txt, removed, true);
 
     text_update_line_offsets(txt);
     text_cursor_update_position(txt);
@@ -188,15 +174,8 @@ void text_cursor_remove_after(Text* txt, isize n) {
     isize r = text_cursor_idx(txt);
     String removed = gapbuf_removen_after(&txt->gapbuf, r - l);
     
-    append_transaction(
-        &txt->commands, 
-        (Transaction) {
-            .col = txt->cursor_col, 
-            .line = txt->cursor_row, 
-            .modified = removed, 
-            .removed = true
-        }
-    );
+    text_add_transaction(txt, removed, true);
+
     text_update_line_offsets(txt);
     text_cursor_update_position(txt);
 }

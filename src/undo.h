@@ -28,7 +28,6 @@ typedef struct CommandList {
     isize end;
     
     Arena string_stack;
-    Arena command_stack;
 
     bool unfinished_command;
 } CommandList;

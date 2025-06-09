@@ -209,46 +209,55 @@ int main(i32 argc, char** argv) {
     bool delete_streak = false;
 
     while(!WindowShouldClose()) {
+        bool cntrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+        bool shift = IsKeyDown(KEY_LEFT_SHIFT)   || IsKeyDown(KEY_LEFT_SHIFT);
 
-        if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_S)) {
+        if (cntrl && IsKeyPressed(KEY_S)) {
             text_save_file(&txt);
-        } else if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_L)) {
+        } else if (cntrl && IsKeyPressed(KEY_L)) {
             StringBuilder sb = {0};
             text_prompt_filename(&sb);
             text_load_file(&txt, sb.data);
             reset_command(&command_list);
             string_free(&sb);
+
+            alpha_num_streak = false;
+            space_streak = false;
+            delete_streak = false;
         }
-        if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_V)) {
-            begin_command(&txt.commands);
+        if (cntrl && IsKeyPressed(KEY_V)) {
+            text_begin_command(&txt);
 
             const char* str = GetClipboardText();
             text_cursor_insert(&txt, string_from_cstring(str));
-            end_command(&txt.commands);
+            text_end_command(&txt);
         }
-        if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_X)) {
-            begin_command(&txt.commands);
+        if (cntrl && IsKeyPressed(KEY_X)) {
+            text_begin_command(&txt);
             text_copy_and_delete_selection_to_clipboard(&txt);
-            end_command(&txt.commands);
+            text_end_command(&txt);
         }
-        if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_C)) {
+        if (cntrl && IsKeyPressed(KEY_C)) {
             // ctrl c
             text_copy_selection_to_clipboard(&txt);
         }
-        if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Z)) {
+        if (cntrl && IsKeyPressed(KEY_Z)) {
+            alpha_num_streak = false;
+            space_streak = false;
+            delete_streak = false;
             text_undo(&txt);
         }
-        if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Y)) {
+        if (cntrl && IsKeyPressed(KEY_Y)) {
             text_redo(&txt);
         }
 
         KeyboardKey key = 0;
-        if (!txt.selected && IsKeyDown(KEY_LEFT_SHIFT)) {
+        if (!txt.selected && shift) {
             text_select_begin(&txt);
         }
         do {
             key = GetKeyPressed();
-            char* s = keycode_to_char(key, IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT));
+            char* s = keycode_to_char(key, shift);
     
             text_cursor_update_position(&txt);
             switch (key) {
@@ -336,7 +345,7 @@ int main(i32 argc, char** argv) {
 
             if (key == KEY_BACKSPACE || key == KEY_DELETE) {
                 if (!delete_streak) {
-                    begin_command(&txt.commands);
+                    text_begin_command(&txt);
                 }
                 
                 if (key == KEY_BACKSPACE) {
@@ -349,11 +358,10 @@ int main(i32 argc, char** argv) {
                 alpha_num_streak = false;
                 space_streak = false;
             }
-            if (s != NULL && !IsKeyDown(KEY_LEFT_CONTROL)) {
-                
+            if (s != NULL && !cntrl) {
                 if (alpha_num_streak && (is_alpha_numeric(*s))) {}
                 else if (space_streak && (string_is_ascii_whitespace(*s))) {}
-                else begin_command(&txt.commands);
+                else text_begin_command(&txt);
 
                 text_cursor_insert(&txt, string_from_cstring(s));
 

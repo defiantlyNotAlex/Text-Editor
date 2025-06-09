@@ -1,7 +1,6 @@
 #include "undo.h"
 #include <stdlib.h>
 
-
 void reset_command(CommandList* commands) {
     arena_clear(&commands->string_stack);
     for (isize i = 0; i < commands->end; i++) {
