@@ -6,6 +6,9 @@
 #include <stdbool.h>
 #include <uchar.h>
 
+#define countof(arr) (sizeof(arr) / sizeof(arr[0]))
+#define foreach(arr, it) for (typeof(arr[0]) it = arr; it != arr + countof(arr); ++it)
+
 typedef int8_t  i8;
 typedef int16_t i16;
 typedef int32_t i32;

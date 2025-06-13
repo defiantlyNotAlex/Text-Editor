@@ -14,7 +14,10 @@
 
 #include "text.h"
 #include "undo.h"
+#include "inputs.h"
 
+
+int keys[] = {KEY_A, KEY_B, KEY_C, KEY_D, KEY_E, KEY_F, KEY_G, KEY_H, KEY_I, KEY_J, KEY_K, KEY_L, KEY_M, KEY_N, KEY_O, KEY_P, KEY_Q, KEY_R, KEY_S, KEY_T, KEY_U, KEY_V, KEY_W, KEY_X, KEY_Y, KEY_Z, KEY_ZERO, KEY_ONE, KEY_TWO, KEY_THREE, KEY_FOUR, KEY_FIVE, KEY_SIX, KEY_SEVEN, KEY_EIGHT, KEY_NINE, KEY_EQUAL, KEY_MINUS, KEY_COMMA, KEY_PERIOD, KEY_LEFT_BRACKET, KEY_RIGHT_BRACKET, KEY_SLASH, KEY_GRAVE, KEY_SEMICOLON, KEY_APOSTROPHE, KEY_TAB, KEY_SPACE, KEY_ENTER};
 
 char* keycode_to_char(KeyboardKey key, bool upper) {
     switch (key)
@@ -163,16 +166,6 @@ void text_draw(TextCamera* camera, Text* txt, Font font) {
     }
 }
 
-void load_file(Text* txt, const char* filename) {
-    gapbuf_read_entire_file(&txt->gapbuf, filename);
-    text_update_line_offsets(txt);
-    text_cursor_update_position(txt);
-}
-void save_file(Text* txt, const char* filename) {
-    gapbuf_write_entire_file(&txt->gapbuf, filename);
-}
-
-
 bool still_word(Codepoint c) {
     if (string_is_ascii_alpha(c) || string_is_digit(c, NULL) || c == '_') {
         return false;
@@ -195,7 +188,7 @@ int main(i32 argc, char** argv) {
     
     TextCamera camera = {.scale = 1.0};
     Text txt = {0};
-    CommandList command_list = {0};
+    Inputs inputs = {.cooldown = 0.5, .repeat_rate = 0.05};
     
     Font font = LoadFontEx("fonts/ComicMono.ttf", 20, NULL, 0);
     
@@ -209,170 +202,177 @@ int main(i32 argc, char** argv) {
     bool delete_streak = false;
 
     while(!WindowShouldClose()) {
-        bool cntrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
-        bool shift = IsKeyDown(KEY_LEFT_SHIFT)   || IsKeyDown(KEY_LEFT_SHIFT);
+        float dt = GetFrameTime();
+        inputs_get_inputs(&inputs, dt);
 
-        if (cntrl && IsKeyPressed(KEY_S)) {
+        
+        bool cntrl = inputs.down[KEY_LEFT_CONTROL] || inputs.down[KEY_RIGHT_CONTROL];
+        bool shift = inputs.down[KEY_LEFT_SHIFT] || inputs.down[KEY_LEFT_SHIFT];
+
+        if (cntrl && inputs.pressed[KEY_S]) {
             text_save_file(&txt);
-        } else if (cntrl && IsKeyPressed(KEY_L)) {
+        } else if (cntrl && inputs.pressed[KEY_L]) {
             StringBuilder sb = {0};
             text_prompt_filename(&sb);
             text_load_file(&txt, sb.data);
-            reset_command(&command_list);
+            reset_command(&txt.commands);
             string_free(&sb);
 
             alpha_num_streak = false;
             space_streak = false;
             delete_streak = false;
-        }
-        if (cntrl && IsKeyPressed(KEY_V)) {
+        } else if (cntrl && inputs.pressed_repeat[KEY_V]) {
             text_begin_command(&txt);
 
             const char* str = GetClipboardText();
+
             text_cursor_insert(&txt, string_from_cstring(str));
             text_end_command(&txt);
-        }
-        if (cntrl && IsKeyPressed(KEY_X)) {
+        } else if (cntrl && inputs.pressed[KEY_X]) {
             text_begin_command(&txt);
             text_copy_and_delete_selection_to_clipboard(&txt);
             text_end_command(&txt);
-        }
-        if (cntrl && IsKeyPressed(KEY_C)) {
+        } else if (cntrl && inputs.pressed[KEY_C]) {
             // ctrl c
             text_copy_selection_to_clipboard(&txt);
-        }
-        if (cntrl && IsKeyPressed(KEY_Z)) {
+        } else if (cntrl && inputs.pressed_repeat[KEY_Z]) {
             alpha_num_streak = false;
             space_streak = false;
             delete_streak = false;
             text_undo(&txt);
-        }
-        if (cntrl && IsKeyPressed(KEY_Y)) {
+        } else if (cntrl && inputs.pressed_repeat[KEY_Y]) {
             text_redo(&txt);
         }
 
-        KeyboardKey key = 0;
+        text_cursor_update_position(&txt);
+        float mousewheel_movement = GetMouseWheelMove();
+        if (mousewheel_movement != 0) {
+            camera.row -= mousewheel_movement;
+        }
+
+        bool cursor_moved = false;
+
+        if (inputs.pressed_repeat[KEY_LEFT]) {
+            if (txt.selected && !shift) { 
+                text_cursor_move_to_selected(&txt, false);
+                cursor_moved = true;
+            } else if (cntrl) {
+                text_cursor_move_until(&txt, false, still_word);
+                cursor_moved = true;
+            } else {
+                text_cursor_move_codepoints(&txt, -1);
+                cursor_moved = true;
+            }
+        } else if (inputs.pressed_repeat[KEY_RIGHT]) {
+            if (txt.selected && !shift) { 
+                text_cursor_move_to_selected(&txt, true);
+                cursor_moved = true;
+            } else if (cntrl) {
+                text_cursor_move_until(&txt, true, still_word);
+                cursor_moved = true;
+            } else {
+                text_cursor_move_codepoints(&txt, 1);
+                cursor_moved = true;
+            }
+        } else if (inputs.pressed_repeat[KEY_UP]) {
+            if (cntrl) {
+                camera.row--;
+            } else if (txt.selected && !shift) {
+                text_cursor_move_to_selected(&txt, false);
+                cursor_moved = true;
+            } else {
+                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row - 1);
+                cursor_moved = true;
+            }
+        } else if (inputs.pressed_repeat[KEY_DOWN]) {
+            if (cntrl) {
+                camera.row++;
+            } else if (txt.selected && !shift) {
+                text_cursor_move_to_selected(&txt, true);
+                cursor_moved = true;
+            } else {
+                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row + 1);
+                cursor_moved = true;
+            }
+        } else if (inputs.pressed_repeat[KEY_HOME]) {
+            text_cursor_moveto(&txt, 0, txt.cursor_row); cursor_moved = true; 
+        } else if (inputs.pressed_repeat[KEY_END]) {
+            text_cursor_moveto(&txt, ISIZE_MAX, txt.cursor_row); cursor_moved = true; 
+        } else if (inputs.pressed_repeat[KEY_PAGE_UP]) {
+            if (cntrl) {
+                camera.row -= 20;
+            } else {
+                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row - 20);
+                cursor_moved = true;
+            }
+        } else if (inputs.pressed_repeat[KEY_PAGE_DOWN]) {
+            if (cntrl) {
+                camera.row += 20;
+            } else {
+                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row + 20);
+                cursor_moved = true;
+            } 
+        }
+
+        if (shift) {
+            text_select_end(&txt);
+        }
+        text_update_line_offsets(&txt);
+        text_cursor_update_position(&txt);
+
+        int lines_fit_on_screen = (GetScreenHeight() - 20) / (font.baseSize * camera.scale) - 2;
+        if (cursor_moved) {
+            if (txt.cursor_row < camera.row) {
+                camera.row = txt.cursor_row;
+            } else if (txt.cursor_row > camera.row + lines_fit_on_screen) {
+                camera.row = txt.cursor_row - lines_fit_on_screen;
+            }
+
+            if (!shift) {
+                txt.selected = false;
+            }
+        }
+
+        if (inputs.pressed_repeat[KEY_BACKSPACE] || inputs.pressed_repeat[KEY_DELETE]) {
+            if (!delete_streak) {
+                text_begin_command(&txt);
+            }
+            
+            if (inputs.pressed_repeat[KEY_BACKSPACE]) {
+                text_cursor_remove_before(&txt, 1);
+            } else if (inputs.pressed_repeat[KEY_DELETE]) {
+                text_cursor_remove_after(&txt, 1);
+            }
+
+            delete_streak = true;
+            alpha_num_streak = false;
+            space_streak = false;
+        }
+        
         if (!txt.selected && shift) {
             text_select_begin(&txt);
         }
-        do {
-            key = GetKeyPressed();
-            char* s = keycode_to_char(key, shift);
-    
-            text_cursor_update_position(&txt);
-            switch (key) {
-                case KEY_LEFT: 
-                case KEY_RIGHT:
-                case KEY_UP: 
-                case KEY_DOWN: 
-                case KEY_HOME: 
-                case KEY_END:
-                if (!IsKeyDown(KEY_LEFT_SHIFT) && !IsKeyDown(KEY_LEFT_CONTROL)) {
-                    txt.selected = false;
-                }
-                break;
-                default: break;
-            }
 
-            float mousewheel_movement = GetMouseWheelMove();
+        for (isize i = 0; i < countof(keys); i++) {
+            int key = keys[i];
+            if (inputs.pressed_repeat[key]) {
+                char* s = keycode_to_char(key, shift);            
+                if (s != NULL && !cntrl) {
+                    if (alpha_num_streak && (is_alpha_numeric(*s))) {}
+                    else if (space_streak && (string_is_ascii_whitespace(*s))) {}
+                    else text_begin_command(&txt);
 
-            if (mousewheel_movement != 0) {
-                camera.row -= mousewheel_movement;
-            }
+                    text_cursor_insert(&txt, string_from_cstring(s));
 
-            bool cursor_moved = false;
-            switch (key) {
-                case KEY_LEFT: if (IsKeyDown(KEY_LEFT_CONTROL)) {
-                    text_cursor_move_until(&txt, false, still_word);
-                    cursor_moved = true;
-                } else {
-                    text_cursor_move_codepoints(&txt, -1);
-                    cursor_moved = true;
-                } break;
-                    
-                case KEY_RIGHT: if (IsKeyDown(KEY_LEFT_CONTROL)) {
-                    text_cursor_move_until(&txt, true, still_word);
-                    cursor_moved = true;
-                } else {
-                    text_cursor_move_codepoints(&txt, 1);
-                    cursor_moved = true;
-                } break;
+                    alpha_num_streak = false;
+                    space_streak = false;
+                    delete_streak = false;
 
-                case KEY_UP: if (IsKeyDown(KEY_LEFT_CONTROL)) {
-                    camera.row--;
-                } else {
-                    text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row - 1);
-                    cursor_moved = true;
-                } break;
-                case KEY_DOWN: if (IsKeyDown(KEY_LEFT_CONTROL)) {
-                    camera.row++;
-                } else {
-                    text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row + 1);
-                    cursor_moved = true;
-                } break;
-
-                case KEY_HOME: text_cursor_moveto(&txt, 0, txt.cursor_row); cursor_moved = true; break;
-                case KEY_END: text_cursor_moveto(&txt, ISIZE_MAX, txt.cursor_row); cursor_moved = true; break;
-
-                case KEY_PAGE_UP: if (IsKeyDown(KEY_LEFT_CONTROL)) {
-                    camera.row -= 20;
-                } else {
-                    text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row - 20);
-                    cursor_moved = true;
-                } break;
-                case KEY_PAGE_DOWN: if (IsKeyDown(KEY_LEFT_CONTROL)) {
-                    camera.row += 20;
-                } else {
-                    text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row + 20);
-                    cursor_moved = true;
-                } break;
-            
-                default: break;
-            }
-            if (IsKeyDown(KEY_LEFT_SHIFT)) {
-                text_select_end(&txt);
-            }
-            text_cursor_update_position(&txt);
-            int lines_fit_on_screen = (GetScreenHeight() - 20) / (font.baseSize * camera.scale) - 2;
-            if (cursor_moved) {
-                if (txt.cursor_row < camera.row) {
-                    camera.row = txt.cursor_row;
-                } else if (txt.cursor_row > camera.row + lines_fit_on_screen) {
-                    camera.row = txt.cursor_row - lines_fit_on_screen;
+                    if (is_alpha_numeric(*s)) alpha_num_streak = true;
+                    if (string_is_ascii_whitespace(*s)) space_streak = true;
                 }
             }
-            
-
-            if (key == KEY_BACKSPACE || key == KEY_DELETE) {
-                if (!delete_streak) {
-                    text_begin_command(&txt);
-                }
-                
-                if (key == KEY_BACKSPACE) {
-                    text_cursor_remove_before(&txt, 1);
-                } else if (key == KEY_DELETE) {
-                    text_cursor_remove_after(&txt, 1);
-                }
-
-                delete_streak = true;
-                alpha_num_streak = false;
-                space_streak = false;
-            }
-            if (s != NULL && !cntrl) {
-                if (alpha_num_streak && (is_alpha_numeric(*s))) {}
-                else if (space_streak && (string_is_ascii_whitespace(*s))) {}
-                else text_begin_command(&txt);
-
-                text_cursor_insert(&txt, string_from_cstring(s));
-
-                alpha_num_streak = false;
-                space_streak = false;
-                delete_streak = false;
-
-                if (is_alpha_numeric(*s)) alpha_num_streak = true;
-                if (string_is_ascii_whitespace(*s)) space_streak = true;
-            }
-        } while(key != '\0');
+        }
         
         text_update_line_offsets(&txt);
         text_cursor_update_position(&txt);

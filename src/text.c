@@ -42,6 +42,7 @@ void text_cursor_move(Text* txt, isize n) {
     }
     gapbuf_movegap_rel(&txt->gapbuf, n);
 }
+// make update position incrementally
 void text_cursor_move_codepoints(Text* txt, isize ncodepoints) {
     GapBufSlice strings = gapbuf_getstrings(&txt->gapbuf);
     isize index = text_cursor_idx(txt);
@@ -76,6 +77,23 @@ void text_cursor_move_codepoints(Text* txt, isize ncodepoints) {
         }
     }
     text_cursor_move(txt, index - text_cursor_idx(txt));
+}
+
+void text_cursor_move_to_selected(Text* txt, bool front) {
+    isize l, r;
+    if (txt->selection_begin < txt->selection_end) {
+        l = txt->selection_begin;
+        r = txt->selection_end;
+    } else {
+        l = txt->selection_end;
+        r = txt->selection_begin;
+    }
+    if (front) {
+        text_cursor_move(txt, r - text_cursor_idx(txt));
+    } else {
+        text_cursor_move(txt, l - text_cursor_idx(txt));
+    }
+    text_cursor_update_position(txt);
 }
 
 isize text_index(Text* txt, isize col, isize row) {
@@ -248,6 +266,7 @@ void text_copy_and_delete_selection_to_clipboard(Text* txt) {
 void text_select_begin(Text* txt) {
     txt->selected = true;
     txt->selection_begin = text_index(txt, txt->cursor_col, txt->cursor_row);
+    txt->selection_end = text_index(txt, txt->cursor_col, txt->cursor_row);
 }
 void text_select_end(Text* txt) {
     txt->selection_end = text_index(txt, txt->cursor_col, txt->cursor_row);

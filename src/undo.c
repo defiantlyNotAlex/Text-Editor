@@ -18,6 +18,7 @@ void append_transaction(CommandList* commands, Transaction transaction) {
         isize new_cap = 8;
         if (new_cap < command->capacity * 2) new_cap = command->capacity * 2;
         command->data = realloc(command->data, new_cap * sizeof(Transaction));
+        
         command->capacity = new_cap;
     }
 
@@ -33,6 +34,7 @@ void begin_command(CommandList* commands) {
         if (new_cap < commands->capacity * 2) new_cap = commands->capacity * 2;
         commands->data = realloc(commands->data, new_cap * sizeof(Command));
         commands->capacity = new_cap;
+        memset(commands->data + commands->end, 0, (new_cap - commands->end) * sizeof(Command));
     }
 
     if (commands->end != commands->curr) {

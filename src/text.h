@@ -36,6 +36,8 @@ void text_cursor_move_codepoints(Text* txt, isize ncodepoints);
 void text_cursor_moveto(Text* txt, isize col, isize row);
 void text_cursor_move_until(Text* txt, bool forwards, bool (*predicate)(Codepoint c));
 
+void text_cursor_move_to_selected(Text* txt, bool front);
+
 void text_cursor_insert(Text* txt, String insert);
 void text_cursor_remove_before(Text* txt, isize n);
 void text_cursor_remove_after(Text* txt, isize n);

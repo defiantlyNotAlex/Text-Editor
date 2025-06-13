@@ -122,7 +122,7 @@ GapBufSlice gapbuf_slice(GapBuffer* gapbuf, isize start, isize end) {
 
 void gapbuf_expand(GapBuffer* gapbuf, isize n) {
     isize new_capacity = gapbuf->capacity * 2;
-    if (n > new_capacity) new_capacity = n;
+    if (gapbuf->capacity + n > new_capacity) new_capacity = gapbuf->capacity + n;
 
     char* new_buffer = malloc(new_capacity);
     assert(new_buffer && "malloc failed");
