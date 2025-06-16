@@ -155,6 +155,10 @@ int main(i32 argc, char** argv) {
             text_undo(&txt);
         } else if (cntrl && inputs.pressed_repeat[KEY_Y]) {
             text_redo(&txt);
+        } else if (cntrl && inputs.pressed[KEY_A]) {
+            text_cursor_moveto(&txt, 0, 0);
+            text_select_begin(&txt);
+            txt.selection_end = gapbuf_count(&txt.gapbuf);
         }
 
         text_cursor_update_position(&txt);
