@@ -15,6 +15,7 @@
 #include "text.h"
 #include "undo.h"
 #include "inputs.h"
+#include "camera.h"
 
 
 int keys[] = {KEY_A, KEY_B, KEY_C, KEY_D, KEY_E, KEY_F, KEY_G, KEY_H, KEY_I, KEY_J, KEY_K, KEY_L, KEY_M, KEY_N, KEY_O, KEY_P, KEY_Q, KEY_R, KEY_S, KEY_T, KEY_U, KEY_V, KEY_W, KEY_X, KEY_Y, KEY_Z, KEY_ZERO, KEY_ONE, KEY_TWO, KEY_THREE, KEY_FOUR, KEY_FIVE, KEY_SIX, KEY_SEVEN, KEY_EIGHT, KEY_NINE, KEY_EQUAL, KEY_MINUS, KEY_COMMA, KEY_PERIOD, KEY_LEFT_BRACKET, KEY_RIGHT_BRACKET, KEY_SLASH, KEY_GRAVE, KEY_SEMICOLON, KEY_APOSTROPHE, KEY_TAB, KEY_SPACE, KEY_ENTER};
@@ -80,92 +81,6 @@ char* keycode_to_char(KeyboardKey key, bool upper) {
     }
 }
 
-typedef struct TextCamera {
-    isize row;
-
-    float scale;
-} TextCamera;
-
-void text_draw(TextCamera* camera, Text* txt, Font font) {
-    float spacing = 1.0;
-    float screen_width = GetScreenWidth();
-    float screen_height = GetScreenHeight();
-
-    GapBufSlice strings = gapbuf_getstrings(&txt->gapbuf);
-
-    float padding = 10.0;
-
-    Vector2 curr_pos = {.x = padding, .y = padding};
-
-    if (camera->row < 0) camera->row = 0;
-    if (camera->row > arrlist_count(txt->line_offsets)) camera->row = arrlist_count(txt->line_offsets);
-
-    isize row = camera->row;
-    isize col = 0;
-    isize real_col = 0;
-
-    isize l, r;
-    if (txt->selection_begin < txt->selection_end) {
-        l = txt->selection_begin;
-        r = txt->selection_end;
-    } else {
-        l = txt->selection_end;
-        r = txt->selection_begin;
-    }
-
-    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < strings.l.count + strings.r.count && curr_pos.y + camera->scale * font.baseSize < screen_height - padding;) {
-        Codepoint c = '\0';
-        if (i < strings.l.count) {
-            c = string_next_codepoint(strings.l, &i);
-        } else {
-            isize j = i - strings.l.count;
-            c = string_next_codepoint(strings.r, &j);
-            i = j + strings.l.count;
-        }
-        
-        if (row == txt->cursor_row && col == txt->cursor_col) {
-            DrawRectangle(curr_pos.x, curr_pos.y, ceilf(camera->scale * 0.5) + 1, font.baseSize * camera->scale, BLUE);
-        }
-        if (real_col >= 80 || curr_pos.x > screen_width - padding * 2) {
-            real_col = 0;
-            curr_pos.x = padding;
-            curr_pos.y += font.baseSize * camera->scale;
-        }
-        if (c == U'\n') {
-            row++;
-            col = 0;
-            real_col = 0;
-            curr_pos.x = padding;
-            curr_pos.y += font.baseSize * camera->scale;
-        } else {
-            
-            col++;
-            real_col++;
-            isize index = GetGlyphIndex(font, c);
-            float width = 0;
-            if (font.glyphs[index].advanceX == 0) width = font.recs[index].width * camera->scale;
-            else width = font.glyphs[index].advanceX * camera->scale;
-            width += spacing;
-            Color colour = BLACK;
-            if (i > l && i <= r && txt->selected) {
-                DrawRectangle(curr_pos.x, curr_pos.y, width, font.baseSize * camera->scale, GetColor(0x0000ffff));
-                colour = GRAY;
-            }
-            if (c != U'\r') {
-                DrawTextCodepoint(font, c, curr_pos, font.baseSize * camera->scale, colour);
-            }
-            Vector2 mpos = GetMousePosition();
-            if (CheckCollisionPointRec(mpos, (Rectangle){curr_pos.x, curr_pos.y, width, font.baseSize * camera->scale})) {
-                //printf("%lld, %lld\n", row, col - 1);
-            }
-            curr_pos.x += width;
-        }
-    }
-    if (row == txt->cursor_row && col == txt->cursor_col) {
-        DrawRectangle(curr_pos.x, curr_pos.y, ceilf(camera->scale * 0.5) + 1, font.baseSize * camera->scale, BLUE);
-    }
-}
-
 bool still_word(Codepoint c) {
     if (string_is_ascii_alpha(c) || string_is_digit(c, NULL) || c == '_') {
         return false;
@@ -207,7 +122,7 @@ int main(i32 argc, char** argv) {
 
         
         bool cntrl = inputs.down[KEY_LEFT_CONTROL] || inputs.down[KEY_RIGHT_CONTROL];
-        bool shift = inputs.down[KEY_LEFT_SHIFT] || inputs.down[KEY_LEFT_SHIFT];
+        bool shift = inputs.down[KEY_LEFT_SHIFT] || inputs.down[KEY_RIGHT_SHIFT];
 
         if (cntrl && inputs.pressed[KEY_S]) {
             text_save_file(&txt);
@@ -253,7 +168,7 @@ int main(i32 argc, char** argv) {
         bool cursor_moved = false;
 
         if (inputs.pressed_repeat[KEY_LEFT]) {
-            if (txt.selected && !shift) { 
+            if (txt.selected && !shift && txt.selection_begin != txt.selection_end) { 
                 text_cursor_move_to_selected(&txt, false);
                 cursor_moved = true;
             } else if (cntrl) {
@@ -264,7 +179,7 @@ int main(i32 argc, char** argv) {
                 cursor_moved = true;
             }
         } else if (inputs.pressed_repeat[KEY_RIGHT]) {
-            if (txt.selected && !shift) { 
+            if (txt.selected && !shift && txt.selection_begin != txt.selection_end) { 
                 text_cursor_move_to_selected(&txt, true);
                 cursor_moved = true;
             } else if (cntrl) {
@@ -277,7 +192,7 @@ int main(i32 argc, char** argv) {
         } else if (inputs.pressed_repeat[KEY_UP]) {
             if (cntrl) {
                 camera.row--;
-            } else if (txt.selected && !shift) {
+            } else if (txt.selected && !shift && txt.selection_begin != txt.selection_end) {
                 text_cursor_move_to_selected(&txt, false);
                 cursor_moved = true;
             } else {
@@ -287,7 +202,7 @@ int main(i32 argc, char** argv) {
         } else if (inputs.pressed_repeat[KEY_DOWN]) {
             if (cntrl) {
                 camera.row++;
-            } else if (txt.selected && !shift) {
+            } else if (txt.selected && !shift && txt.selection_begin != txt.selection_end) {
                 text_cursor_move_to_selected(&txt, true);
                 cursor_moved = true;
             } else {
@@ -378,7 +293,20 @@ int main(i32 argc, char** argv) {
         text_cursor_update_position(&txt);
 
         BeginDrawing();
-        text_draw(&camera, &txt, font);
+        MouseCursorPosition mouse_pos = camera_draw(&camera, &txt, font);
+        if (mouse_pos.exists && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            text_cursor_moveto(&txt, mouse_pos.pos.col, mouse_pos.pos.row);
+            if (shift) {
+                text_select_end(&txt);
+            } else {
+                text_select_begin(&txt);
+            }
+        }
+        if (mouse_pos.exists && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            text_cursor_moveto(&txt, mouse_pos.pos.col, mouse_pos.pos.row);
+            text_select_end(&txt);
+        }
+
         DrawText(TextFormat("line: %ld, col: %ld", txt.cursor_row, txt.cursor_col), 1000, 0, 10, BLACK);
     
         ClearBackground(WHITE);
