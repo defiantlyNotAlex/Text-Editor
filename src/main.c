@@ -101,12 +101,10 @@ int main(i32 argc, char** argv) {
     InitWindow(1280, 720, "Text-Editor");
     SetTargetFPS(60);
     
-    TextCamera camera = {.scale = 1.0};
     Text txt = {0};
+    TextCamera camera = {.scale = 1.0};
     Inputs inputs = {.cooldown = 0.5, .repeat_rate = 0.05};
-    
     Font font = LoadFontEx("fonts/ComicMono.ttf", 20, NULL, 0);
-    
     
     if (argc > 1) {
         text_load_file(&txt, argv[1]);
@@ -293,7 +291,8 @@ int main(i32 argc, char** argv) {
         text_cursor_update_position(&txt);
 
         BeginDrawing();
-        MouseCursorPosition mouse_pos = camera_draw(&camera, &txt, font);
+        MouseCursorPosition mouse_pos = camera_mouse_pos(&camera, &txt, font);
+        camera_draw(&camera, &txt, font);
         if (mouse_pos.exists && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             text_cursor_moveto(&txt, mouse_pos.pos.col, mouse_pos.pos.row);
             if (shift) {

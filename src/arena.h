@@ -6,7 +6,11 @@
 #include <stddef.h>
 #include <stdarg.h>
 
-#define ARENA_REGION_SIZE 200 // 4 KiB //1 MiB
+// DEBUG STUFF
+#define ARENA_BUFFER_EXTRA 0x20
+#define ARENA_MAGIC 0xC9
+
+#define ARENA_REGION_SIZE 0x1000000 //1 MiB
 typedef struct ArenaRegion ArenaRegion;
 
 // dynamically expanding arena implementation, zeroes memory by default
@@ -28,7 +32,7 @@ struct ArenaRegion {
     ArenaRegion* next; // next region (NULL if it is the end)
     ArenaRegion* prev;
 
-    uint8_t begin[];
+    uint8_t data[];
 };
 
 ArenaRegion* arena_create_region(size_t capacity);
@@ -44,6 +48,7 @@ void arena_pop(Arena* arena, size_t count, size_t size);
 void* arena_memdup(Arena* arena, const void* src, size_t size, size_t align);
 char* arena_strdup(Arena* arena, const char* str);
 char* arena_sprintf(Arena* arena, const char* fmt, ...);
+void arena_debug(Arena* arena);
 
 #include "stringbuilder.h"
 String arena_string_dup(Arena* arena, String string);
@@ -62,22 +67,37 @@ String arena_string_dup(Arena* arena, String string);
 void arena_debug(Arena* arena) {
     ArenaRegion* curr = arena->begin;
     while (curr != NULL) {
+        if (curr == arena->begin) printf("[BEGIN]");
+        else printf("       ");
         if (curr == arena->head) printf("[HEAD]");
         else printf("      ");
         printf("[%p], next: %p, prev: %p, (%llu / %llu)\n", curr, curr->next, curr->prev, curr->used, curr->capacity);
+        #ifdef ARENA_DEBUG
+        for (size_t i = 0; i < ARENA_BUFFER_EXTRA; i++) {
+            int a = curr->data[i + curr->capacity];
+            if (a != ARENA_MAGIC) printf("overwrote buffer %d\n", a);
+        }
+        #endif
         curr = curr->next;
     }
 }
 
 // creates a region of memory for the arena
 ArenaRegion* arena_create_region(size_t capacity) {
-    ArenaRegion* region = malloc(capacity + sizeof(ArenaRegion));
+    size_t buffer = 0;
+    #ifdef ARENA_DEBUG 
+        buffer = ARENA_BUFFER_EXTRA;
+    #endif
+    ArenaRegion* region = malloc(capacity + sizeof(ArenaRegion) + buffer);
     assert(region && "malloc failed");
 
     region->next = NULL;
     region->prev = NULL;
     region->capacity = capacity;
     region->used = 0;
+    #ifdef ARENA_DEBUG
+        memset(region->data, ARENA_MAGIC, capacity + ARENA_BUFFER_EXTRA);
+    #endif
     return region;
 }
 // initialises the arena with a starting region
@@ -115,7 +135,7 @@ void* arena_alloc(Arena* arena, size_t count, size_t size, size_t align) {
     
     ArenaRegion* region = arena->head;
     
-    ptrdiff_t padding = -(uintptr_t)((region->begin + region->used)) & (align - 1);
+    ptrdiff_t padding = -(uintptr_t)((region->data + region->used)) & (align - 1);
     ptrdiff_t free_space = region->capacity - region->used;
     ptrdiff_t space_needed = count * size + padding;
     if (free_space < space_needed) {
@@ -127,19 +147,21 @@ void* arena_alloc(Arena* arena, size_t count, size_t size, size_t align) {
             new->next = NULL;
             new->prev = region;
             region->next = new;
+        } else {
+            arena->head = arena->head->next;
+            
+            if (arena->head == NULL) {
+                arena->head = arena_create_region(ARENA_REGION_SIZE);
+                region->next = arena->head;
+                arena->head->prev = region;
+            }
         }
 
-        arena->head = arena->head->next;
-        if (arena->head == NULL) {
-            arena->head = arena_create_region(ARENA_REGION_SIZE);
-            region->next = arena->head;
-            arena->head->prev = region;
-        }
-        padding = -(uintptr_t)((region->begin + region->used)) & (align - 1);
+        padding = -(uintptr_t)((region->data + region->used)) & (align - 1);
         region = arena->head;
     }
     
-    void* ptr = (region->begin + region->used + padding);
+    void* ptr = (region->data + region->used + padding);
     region->used += space_needed;
     memset(ptr, 0, count * size);
     
@@ -157,7 +179,7 @@ void* arena_realloc(Arena* arena, void* oldPtr, size_t oldCount, size_t newCount
     
     assert(newCount * size <= ARENA_REGION_SIZE && "allocations must be smaller than a whole block");
     ArenaRegion* region = arena->head;
-    if (region->begin + region->used == (uint8_t*)oldPtr + oldCount * size) {
+    if (region->data + region->used == (uint8_t*)oldPtr + oldCount * size) {
         ptrdiff_t spaceRequired = (newCount - oldCount) * size;
         if (spaceRequired <= (ptrdiff_t)region->capacity - (ptrdiff_t)region->used) {
             region->used += (newCount - oldCount) * size;

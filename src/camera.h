@@ -13,4 +13,5 @@ typedef struct TextCamera {
     float scale;
 } TextCamera;
 
-MouseCursorPosition camera_draw(TextCamera* camera, Text* txt, Font font);
+MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font);
+void camera_draw(TextCamera* camera, Text* txt, Font font);
