@@ -72,7 +72,7 @@ char* keycode_to_char(KeyboardKey key, bool upper) {
         case KEY_SLASH: return upper ? "?" : "/";
         case KEY_GRAVE: return upper ? "~" : "`";
         case KEY_SEMICOLON: return upper ? ":" : ";";
-        case KEY_APOSTROPHE: return upper ? "\"" : "\"";
+        case KEY_APOSTROPHE: return upper ? "\"" : "\'";
         case KEY_TAB: return "    ";
         case KEY_SPACE: return " ";
         case KEY_ENTER: return "\n";
@@ -100,11 +100,13 @@ int main(i32 argc, char** argv) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1280, 720, "Text-Editor");
     SetTargetFPS(60);
+
+    int font_size = 20;
     
     Text txt = {0};
     TextCamera camera = {.scale = 1.0};
     Inputs inputs = {.cooldown = 0.5, .repeat_rate = 0.05};
-    Font font = LoadFontEx("fonts/ComicMono.ttf", 20, NULL, 0);
+    Font font = LoadFontEx("fonts/ComicMono.ttf", font_size, NULL, 0);
     
     if (argc > 1) {
         text_load_file(&txt, argv[1]);
@@ -237,7 +239,7 @@ int main(i32 argc, char** argv) {
         text_update_line_offsets(&txt);
         text_cursor_update_position(&txt);
 
-        int lines_fit_on_screen = (GetScreenHeight() - 20) / (font.baseSize * camera.scale) - 2;
+        int lines_fit_on_screen = (float)(GetScreenHeight() - 40) / ((float)font.baseSize * camera.scale) - 2;
         if (cursor_moved) {
             if (txt.cursor_row < camera.row) {
                 camera.row = txt.cursor_row;

@@ -190,6 +190,9 @@ void text_cursor_remove_after(Text* txt, isize n) {
     isize l = text_cursor_idx(txt);
     text_cursor_move_codepoints(txt, n);
     isize r = text_cursor_idx(txt);
+    if (l != r) {
+        text_cursor_move_codepoints(txt, -n); 
+    }
     String removed = gapbuf_removen_after(&txt->gapbuf, r - l);
     
     text_add_transaction(txt, removed, true);

@@ -8,8 +8,6 @@ MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font) {
 
     Vector2 mpos = GetMousePosition();
 
-    GapBufSlice strings = gapbuf_getstrings(&txt->gapbuf);
-
     float padding = 10.0;
 
     Vector2 curr_pos = {.x = padding, .y = padding};
@@ -21,28 +19,22 @@ MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font) {
     isize col = 0;
     isize real_col = 0;
 
-    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < strings.l.count + strings.r.count && curr_pos.y + camera->scale * font.baseSize < screen_height - padding;) {
-        Codepoint c = '\0';
-        if (i < strings.l.count) {
-            c = string_next_codepoint(strings.l, &i);
-        } else {
-            isize j = i - strings.l.count;
-            c = string_next_codepoint(strings.r, &j);
-            i = j + strings.l.count;
-        }
+    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < gapbuf_count(&txt->gapbuf) && curr_pos.y + camera->scale * font.baseSize < screen_height - padding;) {
+        Codepoint c = gapbuf_next_codepoint(&txt->gapbuf, &i);
+
 
         if (real_col >= 80 || curr_pos.x > screen_width - padding * 2) {
             real_col = 0;
             curr_pos.x = padding;
             curr_pos.y += font.baseSize * camera->scale;
-        }
-        if (c == U'\n') {
+        } else if (c == '\n') {
             row++;
             col = 0;
             real_col = 0;
             curr_pos.x = padding;
             curr_pos.y += font.baseSize * camera->scale;
-        } else {
+        }
+        if (c != '\n') {
             col++;
             real_col++;
 
@@ -73,8 +65,6 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
     float screen_width = GetScreenWidth();
     float screen_height = GetScreenHeight();
 
-    GapBufSlice strings = gapbuf_getstrings(&txt->gapbuf);
-
     float padding = 10.0;
 
     Vector2 curr_pos = {.x = padding, .y = padding};
@@ -95,28 +85,21 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
         r = txt->selection_begin;
     }
 
-    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < strings.l.count + strings.r.count && curr_pos.y + camera->scale * font.baseSize < screen_height - padding;) {
-        Codepoint c = '\0';
-        if (i < strings.l.count) {
-            c = string_next_codepoint(strings.l, &i);
-        } else {
-            isize j = i - strings.l.count;
-            c = string_next_codepoint(strings.r, &j);
-            i = j + strings.l.count;
-        }
-        
+    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < gapbuf_count(&txt->gapbuf) && curr_pos.y + camera->scale * font.baseSize < screen_height - padding;) {
+        Codepoint c = gapbuf_next_codepoint(&txt->gapbuf, &i);
+
         if (real_col >= 80 || curr_pos.x > screen_width - padding * 2) {
             real_col = 0;
             curr_pos.x = padding;
             curr_pos.y += font.baseSize * camera->scale;
-        }
-        if (c == U'\n') {
+        } else if (c == '\n') {
             row++;
             col = 0;
             real_col = 0;
             curr_pos.x = padding;
             curr_pos.y += font.baseSize * camera->scale;
-        } else {
+        }
+        if (c != '\n') {
             col++;
             real_col++;
 
@@ -137,32 +120,31 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
     real_col = 0;
     curr_pos = (Vector2){.x = padding, .y = padding};
 
-    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < strings.l.count + strings.r.count && curr_pos.y + camera->scale * font.baseSize < screen_height - padding;) {
-        Codepoint c = '\0';
-        if (i < strings.l.count) {
-            c = string_next_codepoint(strings.l, &i);
-        } else {
-            isize j = i - strings.l.count;
-            c = string_next_codepoint(strings.r, &j);
-            i = j + strings.l.count;
-        }
+    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < gapbuf_count(&txt->gapbuf) && curr_pos.y + camera->scale * font.baseSize < screen_height - padding;) {
+        Codepoint c = gapbuf_next_codepoint(&txt->gapbuf, &i);
         
         if (row == txt->cursor_row && col == txt->cursor_col) {
             DrawRectangle(curr_pos.x, curr_pos.y, ceilf(camera->scale * 0.5) + 1, font.baseSize * camera->scale, BLUE);
         }
         if (real_col >= 80 || curr_pos.x > screen_width - padding * 2) {
             real_col = 0;
+
             curr_pos.x = padding;
             curr_pos.y += font.baseSize * camera->scale;
-        }
-        if (c == U'\n') {
+
+            if (c == '\n') {
+                col = 0;
+                row++;
+            }
+        } else if (c == '\n') {
             row++;
             col = 0;
             real_col = 0;
 
             curr_pos.x = padding;
             curr_pos.y += font.baseSize * camera->scale;
-        } else {
+        }
+        if (c != '\n') {
             col++;
             real_col++;
 
@@ -171,6 +153,7 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
             if (font.glyphs[index].advanceX == 0) width = font.recs[index].width * camera->scale;
             else width = font.glyphs[index].advanceX * camera->scale;
             width += spacing;
+
             Color colour = BLACK;
             if (i > l && i <= r && txt->selected) {
                 colour = GRAY;

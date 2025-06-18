@@ -47,6 +47,8 @@ void gapbuf_print(GapBuffer* gapbuf);
 void gapbuf_read_entire_file(GapBuffer* gapbuf, const char* filename);
 void gapbuf_write_entire_file(GapBuffer* gapbuf, const char* filename);
 
+Codepoint gapbuf_next_codepoint(GapBuffer* gapbuf, isize* index);
+
 #ifdef GAPBUFFER_IMPLEMENTATION
 isize gapbuf_gaplen(GapBuffer* gapbuf) {
     return gapbuf->gap_end - gapbuf->gap_begin;
@@ -276,6 +278,19 @@ void gapbuf_write_entire_file(GapBuffer* gapbuf, const char* filename) {
     string_write_file(f, strings.l);
     string_write_file(f, strings.r);
     fclose(f);
+}
+
+Codepoint gapbuf_next_codepoint(GapBuffer* gapbuf, isize* index) {
+    GapBufSlice strings = gapbuf_getstrings(gapbuf);
+    Codepoint c = '\0';
+    if (*index < strings.l.count) {
+        c = string_next_codepoint(strings.l, index);
+    } else {
+        isize j = *index - strings.l.count;
+        c = string_next_codepoint(strings.r, &j);
+        *index = j + strings.l.count;
+    }
+    return c;
 }
 
 #endif
