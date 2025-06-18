@@ -104,7 +104,11 @@ int main(i32 argc, char** argv) {
     int font_size = 20;
     
     Text txt = {0};
-    TextCamera camera = {.scale = 1.0};
+    TextCamera camera = {
+        .max_cols = 1000,
+        .padding = font_size,
+        .spacing = 1.0,
+    };
     Inputs inputs = {.cooldown = 0.5, .repeat_rate = 0.05};
     Font font = LoadFontEx("fonts/ComicMono.ttf", font_size, NULL, 0);
     
@@ -239,12 +243,11 @@ int main(i32 argc, char** argv) {
         text_update_line_offsets(&txt);
         text_cursor_update_position(&txt);
 
-        int lines_fit_on_screen = (float)(GetScreenHeight() - 40) / ((float)font.baseSize * camera.scale) - 2;
         if (cursor_moved) {
             if (txt.cursor_row < camera.row) {
                 camera.row = txt.cursor_row;
-            } else if (txt.cursor_row > camera.row + lines_fit_on_screen) {
-                camera.row = txt.cursor_row - lines_fit_on_screen;
+            } else if (txt.cursor_row > camera.row + 20) {
+                camera.row = txt.cursor_row - 20;
             }
 
             if (!shift) {
@@ -312,7 +315,7 @@ int main(i32 argc, char** argv) {
             text_select_end(&txt);
         }
 
-        DrawText(TextFormat("line: %ld, col: %ld", txt.cursor_row, txt.cursor_col), 1000, 0, 10, BLACK);
+        DrawTextEx(font, TextFormat("line: %ld, col: %ld", txt.cursor_row, txt.cursor_col), (Vector2){camera.padding, GetScreenHeight() - font_size - camera.padding}, font.baseSize, 1.0, BLACK);
     
         ClearBackground(WHITE);
         EndDrawing();

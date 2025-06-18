@@ -1,16 +1,21 @@
 #include "camera.h"
 #include <math.h>
+
+TextCamera camera_default() {
+    return (TextCamera) {
+        .max_cols = 80,
+        .padding = 10.0,
+        .spacing = 1.0,
+    };
+}
 MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font) {
     MouseCursorPosition mouse_pos = {0};
-    float spacing = 1.0;
     float screen_width = GetScreenWidth();
     float screen_height = GetScreenHeight();
 
     Vector2 mpos = GetMousePosition();
 
-    float padding = 10.0;
-
-    Vector2 curr_pos = {.x = padding, .y = padding};
+    Vector2 curr_pos = {.x = camera->padding, .y = camera->padding};
 
     if (camera->row < 0) camera->row = 0;
     if (camera->row > arrlist_count(txt->line_offsets)) camera->row = arrlist_count(txt->line_offsets);
@@ -19,20 +24,20 @@ MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font) {
     isize col = 0;
     isize real_col = 0;
 
-    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < gapbuf_count(&txt->gapbuf) && curr_pos.y + camera->scale * font.baseSize < screen_height - padding;) {
+    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < gapbuf_count(&txt->gapbuf) && curr_pos.y < screen_height - camera->padding * 2 - font.baseSize * 2;) {
         Codepoint c = gapbuf_next_codepoint(&txt->gapbuf, &i);
 
 
-        if (real_col >= 80 || curr_pos.x > screen_width - padding * 2) {
+        if (real_col >= 80 || curr_pos.x > screen_width - camera->padding * 2) {
             real_col = 0;
-            curr_pos.x = padding;
-            curr_pos.y += font.baseSize * camera->scale;
+            curr_pos.x = camera->padding;
+            curr_pos.y += font.baseSize ;
         } else if (c == '\n') {
             row++;
             col = 0;
             real_col = 0;
-            curr_pos.x = padding;
-            curr_pos.y += font.baseSize * camera->scale;
+            curr_pos.x = camera->padding;
+            curr_pos.y += font.baseSize ;
         }
         if (c != '\n') {
             col++;
@@ -40,11 +45,11 @@ MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font) {
 
             isize index = GetGlyphIndex(font, c);
             float width = 0;
-            if (font.glyphs[index].advanceX == 0) width = font.recs[index].width * camera->scale;
-            else width = font.glyphs[index].advanceX * camera->scale;
-            width += spacing;
+            if (font.glyphs[index].advanceX == 0) width = font.recs[index].width ;
+            else width = font.glyphs[index].advanceX ;
+            width += camera->spacing;
             
-            if (CheckCollisionPointRec(mpos, (Rectangle){curr_pos.x, curr_pos.y, width, font.baseSize * camera->scale})) {
+            if (CheckCollisionPointRec(mpos, (Rectangle){curr_pos.x, curr_pos.y, width, font.baseSize })) {
                 if (curr_pos.x + width / 2 > mpos.x) {
                     mouse_pos.pos.col = col - 1;
                 } else {
@@ -61,13 +66,10 @@ MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font) {
     return mouse_pos;
 }
 void camera_draw(TextCamera* camera, Text* txt, Font font) {
-    float spacing = 1.0;
     float screen_width = GetScreenWidth();
     float screen_height = GetScreenHeight();
 
-    float padding = 10.0;
-
-    Vector2 curr_pos = {.x = padding, .y = padding};
+    Vector2 curr_pos = {.x = camera->padding, .y = camera->padding};
 
     if (camera->row < 0) camera->row = 0;
     if (camera->row > arrlist_count(txt->line_offsets)) camera->row = arrlist_count(txt->line_offsets);
@@ -85,19 +87,19 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
         r = txt->selection_begin;
     }
 
-    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < gapbuf_count(&txt->gapbuf) && curr_pos.y + camera->scale * font.baseSize < screen_height - padding;) {
+    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < gapbuf_count(&txt->gapbuf) && curr_pos.y < screen_height - camera->padding * 2 - font.baseSize * 2;) {
         Codepoint c = gapbuf_next_codepoint(&txt->gapbuf, &i);
 
-        if (real_col >= 80 || curr_pos.x > screen_width - padding * 2) {
+        if (real_col >= camera->max_cols || curr_pos.x > screen_width - camera->padding * 2) {
             real_col = 0;
-            curr_pos.x = padding;
-            curr_pos.y += font.baseSize * camera->scale;
+            curr_pos.x = camera->padding;
+            curr_pos.y += font.baseSize ;
         } else if (c == '\n') {
             row++;
             col = 0;
             real_col = 0;
-            curr_pos.x = padding;
-            curr_pos.y += font.baseSize * camera->scale;
+            curr_pos.x = camera->padding;
+            curr_pos.y += font.baseSize ;
         }
         if (c != '\n') {
             col++;
@@ -105,12 +107,12 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
 
             isize index = GetGlyphIndex(font, c);
             float width = 0;
-            if (font.glyphs[index].advanceX == 0) width = font.recs[index].width * camera->scale;
-            else width = font.glyphs[index].advanceX * camera->scale;
-            width += spacing;
+            if (font.glyphs[index].advanceX == 0) width = font.recs[index].width ;
+            else width = font.glyphs[index].advanceX ;
+            width += camera->spacing;
             
             if (i > l && i <= r && txt->selected) {
-                DrawRectangle(curr_pos.x, curr_pos.y, width, font.baseSize * camera->scale, GetColor(0x0000ffff));
+                DrawRectangle(curr_pos.x, curr_pos.y, width, font.baseSize , GetColor(0x0000ffff));
             }
             curr_pos.x += width;
         }
@@ -118,19 +120,19 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
     row = camera->row;
     col = 0;
     real_col = 0;
-    curr_pos = (Vector2){.x = padding, .y = padding};
+    curr_pos = (Vector2){.x = camera->padding, .y = camera->padding};
 
-    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < gapbuf_count(&txt->gapbuf) && curr_pos.y + camera->scale * font.baseSize < screen_height - padding;) {
+    for (isize i = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; i < gapbuf_count(&txt->gapbuf) && curr_pos.y < screen_height - camera->padding * 2 - font.baseSize * 2;) {
         Codepoint c = gapbuf_next_codepoint(&txt->gapbuf, &i);
         
         if (row == txt->cursor_row && col == txt->cursor_col) {
-            DrawRectangle(curr_pos.x, curr_pos.y, ceilf(camera->scale * 0.5) + 1, font.baseSize * camera->scale, BLUE);
+            DrawRectangle(curr_pos.x, curr_pos.y, ceilf(0.5) + 1, font.baseSize , BLUE);
         }
-        if (real_col >= 80 || curr_pos.x > screen_width - padding * 2) {
+        if (real_col >= camera->max_cols || curr_pos.x > screen_width - camera->padding * 2) {
             real_col = 0;
 
-            curr_pos.x = padding;
-            curr_pos.y += font.baseSize * camera->scale;
+            curr_pos.x = camera->padding;
+            curr_pos.y += font.baseSize ;
 
             if (c == '\n') {
                 col = 0;
@@ -141,8 +143,8 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
             col = 0;
             real_col = 0;
 
-            curr_pos.x = padding;
-            curr_pos.y += font.baseSize * camera->scale;
+            curr_pos.x = camera->padding;
+            curr_pos.y += font.baseSize ;
         }
         if (c != '\n') {
             col++;
@@ -150,21 +152,21 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
 
             isize index = GetGlyphIndex(font, c);
             float width = 0;
-            if (font.glyphs[index].advanceX == 0) width = font.recs[index].width * camera->scale;
-            else width = font.glyphs[index].advanceX * camera->scale;
-            width += spacing;
+            if (font.glyphs[index].advanceX == 0) width = font.recs[index].width ;
+            else width = font.glyphs[index].advanceX ;
+            width += camera->spacing;
 
             Color colour = BLACK;
             if (i > l && i <= r && txt->selected) {
                 colour = GRAY;
             }
             if (c != U'\r') {
-                DrawTextCodepoint(font, c, curr_pos, font.baseSize * camera->scale, colour);
+                DrawTextCodepoint(font, c, curr_pos, font.baseSize , colour);
             }
             curr_pos.x += width;
         }
     }
     if (row == txt->cursor_row && col == txt->cursor_col) {
-        DrawRectangle(curr_pos.x, curr_pos.y, ceilf(camera->scale * 0.5) + 1, font.baseSize * camera->scale, BLUE);
+        DrawRectangle(curr_pos.x, curr_pos.y, ceilf(0.5) + 1, font.baseSize , BLUE);
     }
 }
