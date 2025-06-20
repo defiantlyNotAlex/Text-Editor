@@ -10,8 +10,11 @@ typedef struct MouseCursorPosition {
 typedef struct TextCamera {
     isize row;
 
-    float spacing;
     float padding;
+    float left_margin;
+    float bottom_margin;
+
+    float spacing;
     int max_cols;
 } TextCamera;
 
