@@ -22,7 +22,7 @@ Codepoint camera_next_char(TextCamera* camera, Text* txt, Font font, CameraPosit
 
     if (c != '\n') {
         pos->col++;
-        pos->true_col++;
+        pos->screen_col++;
 
         isize glyph_index = GetGlyphIndex(font, c);
         pos->width = 0;
@@ -31,9 +31,9 @@ Codepoint camera_next_char(TextCamera* camera, Text* txt, Font font, CameraPosit
         pos->width += camera->spacing;
     }
 
-    if (pos->true_col >= camera->max_cols || pos->position.x + pos->width > screen_width - camera->padding || c == '\n') {
-        pos->true_col = 0;
-        pos->true_line++;
+    if (pos->screen_col >= camera->max_cols || pos->position.x + pos->width > screen_width - camera->padding || c == '\n') {
+        pos->screen_col = 0;
+        pos->screen_line++;
 
         pos->position.x = camera->padding + camera->left_margin;
         pos->position.y += font.baseSize ;
@@ -63,12 +63,12 @@ MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font) {
         .position = {camera->padding + camera->left_margin, .y = camera->padding},
         .line = camera->row,
     };
-    isize line = pos.true_line;
+    isize line = pos.screen_line;
     isize old_line = pos.line;
     isize old_col = pos.col;
     Vector2 old_pos = pos.position;
     for (pos.index = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; pos.index < gapbuf_count(&txt->gapbuf) && pos.position.y + font.baseSize < bottom;) {
-        line = pos.true_line;
+        line = pos.screen_line;
         old_line = pos.line;
         old_col = pos.col;
         old_pos = pos.position;
@@ -90,7 +90,7 @@ MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font) {
             return mouse_pos;
         }
         Rectangle line_rect = {camera->padding + camera->left_margin, old_pos.y, screen_width - line_rect.x, font.baseSize};
-        if (line != pos.true_line && CheckCollisionPointRec(mpos, line_rect)) {
+        if (line != pos.screen_line && CheckCollisionPointRec(mpos, line_rect)) {
             #ifdef DEBUG
                 DrawRectangleRec(line_rect, GetColor(0xff0000a0));
             #endif

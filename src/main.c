@@ -105,7 +105,7 @@ int main(i32 argc, char** argv) {
     
     Text txt = {0};
     TextCamera camera = {
-        .max_cols = 1000,
+        .max_cols = 80,
         .spacing = 1.0,
         
         .padding = font_size / 4,

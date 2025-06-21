@@ -24,7 +24,7 @@ typedef struct TextCamera {
 
 typedef struct CameraPosition {
     isize line, col;
-    isize true_line, true_col;
+    isize screen_line, screen_col;
 
     isize index;
     Vector2 position;
