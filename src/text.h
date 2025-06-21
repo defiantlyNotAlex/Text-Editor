@@ -16,24 +16,24 @@ typedef struct Text {
     isize selection_end;
 
     isize cursor_col;
-    isize cursor_row;
+    isize cursor_line;
 } Text;
 
 typedef struct CursorPosition {
     isize col;
-    isize row;
+    isize line;
 } CursorPosition;
 
 CursorPosition text_get_pos(Text* txt, isize index);
 isize text_get_row(Text* txt, isize index);
-isize text_index(Text* txt, isize col, isize row);
+isize text_index(Text* txt, isize col, isize line);
 
 isize text_cursor_idx(Text* txt);
 
 void text_cursor_update_position(Text* txt);
 void text_cursor_move(Text* txt, isize n);
 void text_cursor_move_codepoints(Text* txt, isize ncodepoints);
-void text_cursor_moveto(Text* txt, isize col, isize row);
+void text_cursor_moveto(Text* txt, isize col, isize line);
 void text_cursor_move_until(Text* txt, bool forwards, bool (*predicate)(Codepoint c));
 
 void text_cursor_move_to_selected(Text* txt, bool front);

@@ -33,13 +33,10 @@ typedef struct CommandList {
 } CommandList;
 
 void reset_command(CommandList* commands);
-void insert_command(CommandList* commands, String modified, bool inserted, isize col, isize row);
 
 void append_transaction(CommandList* commands, Transaction transaction);
 
 void begin_command(CommandList* commands);
 void end_command(CommandList* commands);
-
-
 
 #endif //UNDO_H_

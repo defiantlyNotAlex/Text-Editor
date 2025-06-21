@@ -207,7 +207,7 @@ int main(i32 argc, char** argv) {
                 text_cursor_move_to_selected(&txt, false);
                 cursor_moved = true;
             } else {
-                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row - 1);
+                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_line - 1);
                 cursor_moved = true;
             }
         } else if (inputs.pressed_repeat[KEY_DOWN]) {
@@ -217,25 +217,25 @@ int main(i32 argc, char** argv) {
                 text_cursor_move_to_selected(&txt, true);
                 cursor_moved = true;
             } else {
-                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row + 1);
+                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_line + 1);
                 cursor_moved = true;
             }
         } else if (inputs.pressed_repeat[KEY_HOME]) {
-            text_cursor_moveto(&txt, 0, txt.cursor_row); cursor_moved = true; 
+            text_cursor_moveto(&txt, 0, txt.cursor_line); cursor_moved = true; 
         } else if (inputs.pressed_repeat[KEY_END]) {
-            text_cursor_moveto(&txt, ISIZE_MAX, txt.cursor_row); cursor_moved = true; 
+            text_cursor_moveto(&txt, ISIZE_MAX, txt.cursor_line); cursor_moved = true; 
         } else if (inputs.pressed_repeat[KEY_PAGE_UP]) {
             if (cntrl) {
                 camera.row -= 20;
             } else {
-                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row - 20);
+                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_line - 20);
                 cursor_moved = true;
             }
         } else if (inputs.pressed_repeat[KEY_PAGE_DOWN]) {
             if (cntrl) {
                 camera.row += 20;
             } else {
-                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_row + 20);
+                text_cursor_moveto(&txt, txt.cursor_col, txt.cursor_line + 20);
                 cursor_moved = true;
             } 
         }
@@ -291,10 +291,10 @@ int main(i32 argc, char** argv) {
         }
 
         if (cursor_moved) {
-            if (txt.cursor_row < camera.row) {
-                camera.row = txt.cursor_row;
-            } else if (txt.cursor_row > camera.row + 20) {
-                camera.row = txt.cursor_row - 20;
+            if (txt.cursor_line < camera.row) {
+                camera.row = txt.cursor_line;
+            } else if (txt.cursor_line > camera.row + 20) {
+                camera.row = txt.cursor_line - 20;
             }
 
             if (!shift) {
@@ -310,7 +310,7 @@ int main(i32 argc, char** argv) {
         camera_draw(&camera, &txt, font);
 
         if (mouse_pos.exists && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            text_cursor_moveto(&txt, mouse_pos.pos.col, mouse_pos.pos.row);
+            text_cursor_moveto(&txt, mouse_pos.pos.col, mouse_pos.pos.line);
             if (shift) {
                 text_select_end(&txt);
             } else {
@@ -318,7 +318,7 @@ int main(i32 argc, char** argv) {
             }
         }
         if (mouse_pos.exists && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-            text_cursor_moveto(&txt, mouse_pos.pos.col, mouse_pos.pos.row);
+            text_cursor_moveto(&txt, mouse_pos.pos.col, mouse_pos.pos.line);
             text_select_end(&txt);
         }
 
@@ -327,7 +327,7 @@ int main(i32 argc, char** argv) {
         DrawLine(0, y_top, GetScreenWidth(), y_top, BLACK);
         DrawLine(camera.left_margin, 0, camera.left_margin, GetScreenHeight() - camera.bottom_margin, BLACK);
         
-        DrawTextEx(font, TextFormat("line: %ld, col: %ld", txt.cursor_row + 1, txt.cursor_col + 1), (Vector2){camera.padding, GetScreenHeight() - camera.bottom_margin + camera.padding}, font.baseSize, 1.0, BLACK);
+        DrawTextEx(font, TextFormat("line: %ld, col: %ld", txt.cursor_line + 1, txt.cursor_col + 1), (Vector2){camera.padding, GetScreenHeight() - camera.bottom_margin + camera.padding}, font.baseSize, 1.0, BLACK);
     
         ClearBackground(WHITE);
         EndDrawing();

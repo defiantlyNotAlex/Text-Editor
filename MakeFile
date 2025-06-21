@@ -3,9 +3,13 @@ all: compile link
 CC=gcc
 CFLAGS=-I src/include -std=c11 -Wall -g -O0
 LDFLAGS=-L src/lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
+DEBUGFLAGS=-D DEBUG
 
 compile:
 	$(CC) $(CFLAGS) -c src/*.c 
 link:
 	$(CC) $(CFLAGS) *.o $(LDFLAGS) -o main.exe
 	
+debug:
+	$(CC) $(CFLAGS) -c src/*.c $(DEBUGFLAGS)
+	$(CC) $(CFLAGS) *.o $(LDFLAGS) -o main.exe

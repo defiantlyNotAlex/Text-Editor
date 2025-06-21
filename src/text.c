@@ -22,7 +22,7 @@ CursorPosition text_get_pos(Text* txt, isize index) {
     }
     CursorPosition pos = {
         .col = col,
-        .row = row,
+        .line = row,
     };
     return pos;
 }
@@ -218,7 +218,7 @@ void text_update_line_offsets(Text* txt) {
 void text_cursor_update_position(Text* txt) {
     CursorPosition pos = text_get_pos(txt, text_cursor_idx(txt));
     txt->cursor_col = pos.col;
-    txt->cursor_row = pos.row;
+    txt->cursor_line = pos.line;
 }
 
 void text_delete_selection(Text* txt) {
@@ -268,11 +268,11 @@ void text_copy_and_delete_selection_to_clipboard(Text* txt) {
 
 void text_select_begin(Text* txt) {
     txt->selected = true;
-    txt->selection_begin = text_index(txt, txt->cursor_col, txt->cursor_row);
-    txt->selection_end = text_index(txt, txt->cursor_col, txt->cursor_row);
+    txt->selection_begin = text_index(txt, txt->cursor_col, txt->cursor_line);
+    txt->selection_end = text_index(txt, txt->cursor_col, txt->cursor_line);
 }
 void text_select_end(Text* txt) {
-    txt->selection_end = text_index(txt, txt->cursor_col, txt->cursor_row);
+    txt->selection_end = text_index(txt, txt->cursor_col, txt->cursor_line);
 }
 
 GapBufSlice text_selected_string(Text* txt) {
@@ -311,7 +311,7 @@ void text_add_transaction(Text* txt, String modified, bool removed) {
         &txt->commands,
         (Transaction) {
             .col = txt->cursor_col,
-            .line = txt->cursor_row,
+            .line = txt->cursor_line,
             .modified = arena_string_dup(&txt->commands.string_stack, modified),
             .removed = removed,
         }

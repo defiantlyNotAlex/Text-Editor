@@ -18,6 +18,18 @@ typedef struct TextCamera {
     int max_cols;
 } TextCamera;
 
+typedef struct CameraPosition {
+    isize line, col;
+    isize true_line, true_col;
+
+    isize index;
+    Vector2 position;
+    float width;
+} CameraPosition;
+
 TextCamera camera_default();
+
+Codepoint camera_next_char(TextCamera* camera, Text* txt, Font font, CameraPosition* pos);
+
 MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font);
 void camera_draw(TextCamera* camera, Text* txt, Font font);
