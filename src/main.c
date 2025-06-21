@@ -246,8 +246,6 @@ int main(i32 argc, char** argv) {
         text_update_line_offsets(&txt);
         text_cursor_update_position(&txt);
 
-        
-
         if (inputs.pressed_repeat[KEY_BACKSPACE] || inputs.pressed_repeat[KEY_DELETE]) {
             if (!delete_streak) {
                 text_begin_command(&txt);
@@ -327,7 +325,7 @@ int main(i32 argc, char** argv) {
         DrawLine(0, y_top, GetScreenWidth(), y_top, BLACK);
         DrawLine(camera.left_margin, 0, camera.left_margin, GetScreenHeight() - camera.bottom_margin, BLACK);
         
-        DrawTextEx(font, TextFormat("line: %ld, col: %ld", txt.cursor_line + 1, txt.cursor_col + 1), (Vector2){camera.padding, GetScreenHeight() - camera.bottom_margin + camera.padding}, font.baseSize, 1.0, BLACK);
+        DrawTextEx(font, TextFormat("(%ld, %ld) %s", txt.cursor_line + 1, txt.cursor_col + 1, txt.filename.data ? txt.filename.data : "(unnamed file)"), (Vector2){camera.padding, GetScreenHeight() - camera.bottom_margin + camera.padding}, font.baseSize, 1.0, BLACK);
     
         ClearBackground(WHITE);
         EndDrawing();

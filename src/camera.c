@@ -67,7 +67,7 @@ MouseCursorPosition camera_mouse_pos(TextCamera* camera, Text* txt, Font font) {
     isize old_line = pos.line;
     isize old_col = pos.col;
     Vector2 old_pos = pos.position;
-    for (pos.index = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; pos.index < gapbuf_count(&txt->gapbuf) && pos.position.y < bottom;) {
+    for (pos.index = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; pos.index < gapbuf_count(&txt->gapbuf) && pos.position.y + font.baseSize < bottom;) {
         line = pos.true_line;
         old_line = pos.line;
         old_col = pos.col;
@@ -139,13 +139,13 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
         .line = camera->row,
     };
 
-    for (pos.index = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; pos.index < gapbuf_count(&txt->gapbuf) && pos.position.y < bottom;) {
+    for (pos.index = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; pos.index < gapbuf_count(&txt->gapbuf) && pos.position.y + font.baseSize < bottom;) {
         Codepoint c = camera_next_char(camera, txt, font, &pos);
     
-        if (pos.index > l && pos.index <= r && txt->selected) {
-            DrawRectangle(pos.position.x, pos.position.y, pos.width, font.baseSize, GetColor(0x0000ffff));
-        }
         if (c != '\r' && c != '\n') {
+            if (pos.index > l && pos.index <= r && txt->selected) {
+                DrawRectangle(pos.position.x, pos.position.y, pos.width, font.baseSize, highlight_colour);
+            }
             pos.position.x += pos.width;
         }
     }
@@ -155,9 +155,9 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
         .line = camera->row,
     };
 
-    for (pos2.index = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; pos2.index < gapbuf_count(&txt->gapbuf) && pos2.position.y < bottom;) {
+    for (pos2.index = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; pos2.index < gapbuf_count(&txt->gapbuf) && pos2.position.y + font.baseSize < bottom;) {
         if (pos2.col == 0) {
-            DrawTextEx(font, TextFormat("%d", pos2.line + 1), (Vector2){.x = camera->padding, .y = pos2.position.y}, font.baseSize, camera->spacing, BLACK);
+            DrawTextEx(font, TextFormat("%d", pos2.line + 1), (Vector2){.x = camera->padding, .y = pos2.position.y}, font.baseSize, camera->spacing, text_colour);
         }
         Codepoint c = camera_next_char(camera, txt, font, &pos2);
         if (c != '\r' && c != '\n') {
@@ -172,20 +172,15 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
 
     
 
-    for (pos3.index = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; pos3.index < gapbuf_count(&txt->gapbuf) && pos3.position.y < bottom;) {
+    for (pos3.index = camera->row != 0 ? txt->line_offsets[camera->row - 1] : 0; pos3.index < gapbuf_count(&txt->gapbuf) && pos3.position.y + font.baseSize < bottom;) {
         if (pos3.line == txt->cursor_line && pos3.col == txt->cursor_col) {
-            DrawRectangle(pos3.position.x, pos3.position.y, 2, font.baseSize , BLUE);
+            DrawRectangle(pos3.position.x, pos3.position.y, 2, font.baseSize, cursor_colour);
         }
         
         Codepoint c = camera_next_char(camera, txt, font, &pos3);
     
-
-        Color colour = BLACK;
-        if (pos3.index > l && pos3.index <= r && txt->selected) {
-            colour = GRAY;
-        }
         if (c != '\r' && c != '\n') {
-            DrawTextCodepoint(font, c, pos3.position, font.baseSize, colour);
+            DrawTextCodepoint(font, c, pos3.position, font.baseSize, text_colour);
             pos3.position.x += pos3.width;
         }
     }
@@ -193,10 +188,10 @@ void camera_draw(TextCamera* camera, Text* txt, Font font) {
     
     if (pos3.position.y < bottom - font.baseSize) {
         if (pos3.col == 0) {
-            DrawTextEx(font, TextFormat("%d", pos3.line + 1), (Vector2){.x = camera->padding, .y = pos3.position.y}, font.baseSize, camera->spacing, BLACK);
+            DrawTextEx(font, TextFormat("%d", pos3.line + 1), (Vector2){.x = camera->padding, .y = pos3.position.y}, font.baseSize, camera->spacing, text_colour);
         }
         if (pos3.line == txt->cursor_line && pos3.col == txt->cursor_col) {
-            DrawRectangle(pos3.position.x, pos3.position.y, 2, font.baseSize , BLUE);
+            DrawRectangle(pos3.position.x, pos3.position.y, 2, font.baseSize , cursor_colour);
         }
     }
 }
