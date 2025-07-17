@@ -32,7 +32,6 @@ typedef unsigned char byte;
 typedef ptrdiff_t isize;
 typedef size_t    usize;
 
-
 #define BYTE_MAX UINT8_MAX
 #define BYTE_MIN 0
 

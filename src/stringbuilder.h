@@ -49,9 +49,6 @@ typedef char32_t Codepoint; // represents one unicode codepoint
 #define string_literal(str) ((String){.data = u8 ## str, .count = sizeof(u8 ## str) - 1}) // creates a String from a string literal
 #define sl string_literal
 
-#define string_char_literal(c) (Codepoint){U ## c}
-#define cl(c) string_char_literal(c)
-
 // STRING FUNCTIONS
 
 String string_build_slice(StringBuilder sb, ptrdiff_t start, ptrdiff_t stop);
@@ -60,7 +57,7 @@ String string_slice(String string, ptrdiff_t start, ptrdiff_t stop);
 
 String string_from_cstring(const char* str);
 char* string_to_cstring(String string);
-char* string_to_cstringn(String string, char* buff, ptrdiff_t n);
+char* string_to_cstringn(String string, char* buff, ptrdiff_t buff_len);
 
 // STRINGBUILDER FUNCTIONS
 
@@ -100,6 +97,7 @@ StringBuilder string_clone(String string);
 
 uint64_t string_hash(String string);
 bool string_compare(String lhs, String rhs);
+//int string_lexigraphical_compare(String lhs, String rhs);
 
 ptrdiff_t string_findc(String haystack, Codepoint needle, ptrdiff_t start);
 ptrdiff_t string_find(String haystack, String needle, ptrdiff_t start);
