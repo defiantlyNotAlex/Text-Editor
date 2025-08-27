@@ -1,15 +1,25 @@
 all: compile link
 
 CC=gcc
-CFLAGS=-I src/include -std=c11 -Wall -g -O0
+CFLAGS=-I src/include -std=c11 -Wall -g -O3
 LDFLAGS=-L src/lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
 DEBUGFLAGS=-D DEBUG
 
-compile:
-	$(CC) $(CFLAGS) -c src/*.c 
+build/camera.o: src/camera.c src/camera.h src/text.h src/gapbuffer.h src/stringbuilder.h
+	$(CC) $(CFLAGS) src/camera.c -c -o build/camera.o
+build/inputs.o: src/inputs.c src/inputs.h src/stringbuilder.h
+	$(CC) $(CFLAGS) src/inputs.c -c -o build/inputs.o
+build/text.o: src/text.c src/text.h src/gapbuffer.h src/stringbuilder.h src/undo.h src/arraylist.h src/arena.h
+	$(CC) $(CFLAGS) src/text.c -c -o build/text.o
+build/undo.o: src/undo.c src/undo.h src/stringbuilder.h src/arraylist.h src/arena.h
+	$(CC) $(CFLAGS) src/undo.c -c -o build/undo.o
+build/main.o: src/undo.c src/undo.h src/stringbuilder.h src/arraylist.h src/arena.h src/camera.h src/text.h
+	$(CC) $(CFLAGS) src/main.c -c -o build/main.o
+
+compile: build/camera.o build/inputs.o build/text.o build/undo.o build/main.o
 link:
-	$(CC) $(CFLAGS) *.o $(LDFLAGS) -o main.exe
+	$(CC) $(CFLAGS) build/*.o $(LDFLAGS) -o editor.exe
 	
 debug:
 	$(CC) $(CFLAGS) -c src/*.c $(DEBUGFLAGS)
-	$(CC) $(CFLAGS) *.o $(LDFLAGS) -o main.exe
+	$(CC) $(CFLAGS) *.o $(LDFLAGS) -o editor.exe

@@ -2,10 +2,6 @@
 #include "short_types.h"
 #include "text.h"
 
-inline static Color cursor_colour = {.r = 0x0a, .g = 0x0a, .b = 0x1a, .a = 0xff};
-inline static Color text_colour = {.r = 0x05, .g = 0x05, .b = 0x05, .a = 0xff};
-inline static Color highlight_colour = {.r = 0x6a, .g = 0x83, .b = 0xfc, .a = 0xff};
-
 typedef struct MouseCursorPosition {
     CursorPosition pos;
     bool exists;
